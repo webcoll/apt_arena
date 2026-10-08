@@ -181,54 +181,43 @@
       </div>
     </section>
 
-    <!-- 5. ANSWER LOCKED SCREEN -->
-    <section id="player-locked-screen" class="hidden w-full glass-panel rounded-3xl p-8 text-center animate-fade-in">
-      <div class="w-20 h-20 rounded-full bg-violet-500/20 border-2 border-violet-500/50 mx-auto flex items-center justify-center text-3xl mb-4 text-violet-300 animate-pulse">
-        <i class="fa-solid fa-lock"></i>
+    <!-- 5. INLINE FEEDBACK OVERLAY (Appears briefly between questions) -->
+    <div id="player-feedback-overlay" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md z-40 flex flex-col items-center justify-center p-6 animate-fade-in">
+      <div id="feedback-icon-wrap" class="w-24 h-24 rounded-full flex items-center justify-center text-5xl mb-4 shadow-2xl">
+        <i class="fa-solid fa-check"></i>
       </div>
-      <h3 class="text-2xl font-black text-white">Answer Locked In!</h3>
-      <p class="text-slate-400 text-xs mt-2">Waiting for other students to respond...</p>
+      <h3 id="feedback-title" class="text-3xl font-black text-white mb-2">Correct!</h3>
+      <div id="feedback-points" class="font-mono font-black text-2xl text-emerald-400 mb-1">+950 pts</div>
+      <div id="feedback-streak" class="hidden text-xs font-bold text-amber-400 mb-4">🔥 Streak Bonus Active!</div>
+      <div class="text-xs text-slate-400 animate-pulse mt-4">Loading next question...</div>
+    </div>
 
-      <div class="mt-6 flex justify-center">
-        <div class="w-12 h-1.5 bg-violet-500/30 rounded-full overflow-hidden">
-          <div class="w-full h-full bg-violet-400 animate-pulse"></div>
-        </div>
+    <!-- 6. ALL QUESTIONS COMPLETED (Waiting for Host to Release Scores) -->
+    <section id="player-waiting-podium-screen" class="hidden w-full glass-panel rounded-3xl p-8 text-center animate-fade-in">
+      <div class="w-24 h-24 rounded-full bg-gradient-to-tr from-amber-400/20 to-emerald-400/20 border-2 border-emerald-400/50 mx-auto flex items-center justify-center text-4xl mb-4 text-emerald-300 shadow-2xl animate-pulse">
+        🏁
       </div>
-    </section>
+      <h3 class="text-3xl font-black text-white">Quiz Completed!</h3>
+      <p class="text-emerald-400 font-extrabold text-sm mt-1">You finished all questions!</p>
 
-    <!-- 6. QUESTION RESULT FEEDBACK -->
-    <section id="player-result-screen" class="hidden w-full glass-panel rounded-3xl p-6 text-center animate-fade-in">
-      <!-- Status Badge Icon -->
-      <div id="result-status-icon-wrap" class="w-20 h-20 rounded-full mx-auto flex items-center justify-center text-4xl mb-4 shadow-lg">
-        <!-- Injected -->
-      </div>
-
-      <h3 id="result-status-title" class="text-3xl font-black text-white">
-        Correct!
-      </h3>
-
-      <div class="my-4 p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
+      <div class="my-6 p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
         <div class="flex items-center justify-between text-sm">
-          <span class="text-slate-400">Points Earned:</span>
-          <span id="result-points-earned" class="font-mono font-black text-emerald-400 text-lg">+920</span>
+          <span class="text-slate-400">Your Current Score:</span>
+          <span id="waiting-score-display" class="font-mono font-black text-2xl text-amber-300">0 pts</span>
         </div>
-        <div id="result-streak-row" class="hidden flex items-center justify-between text-sm">
-          <span class="text-slate-400">Streak Bonus:</span>
-          <span id="result-streak-bonus" class="font-bold text-amber-400">🔥 +100</span>
-        </div>
-        <div class="border-t border-white/10 pt-2 flex items-center justify-between text-sm">
-          <span class="text-slate-400">Your Current Rank:</span>
-          <span id="result-current-rank" class="font-extrabold text-violet-300">#1 / 5</span>
+        <div class="flex items-center justify-between text-sm">
+          <span class="text-slate-400">Questions Solved:</span>
+          <span id="waiting-solved-display" class="font-bold text-emerald-400">100%</span>
         </div>
       </div>
 
-      <div class="text-xs text-slate-400 mt-4 flex items-center justify-center space-x-1.5">
-        <i class="fa-solid fa-tv text-violet-400"></i>
-        <span>Leaderboard updating on main screen!</span>
+      <div class="p-4 rounded-2xl bg-violet-600/20 border border-violet-500/30 text-slate-300 text-xs flex items-center justify-center space-x-2">
+        <i class="fa-solid fa-tv text-violet-400 text-base animate-bounce"></i>
+        <span>Look up at the main display screen! Waiting for host to release final podium...</span>
       </div>
     </section>
 
-    <!-- 7. FINAL GAME OVER SCREEN -->
+    <!-- 7. FINAL GAME OVER SCREEN (Declared by Host) -->
     <section id="player-finished-screen" class="hidden w-full glass-panel rounded-3xl p-8 text-center animate-fade-in">
       <div id="final-trophy-icon" class="text-6xl mb-4 animate-bounce">
         🏆

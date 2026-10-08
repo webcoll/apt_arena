@@ -6,22 +6,24 @@ let selectedAvatar = AVATARS[0];
 let currentQuestionIndex = -1;
 let localTimerInterval = null;
 let currentScore = 0;
+let questionStartTime = 0;
+let questionTimeLimit = 20;
 
 // Screens
 const joinScreen = document.getElementById('player-join-screen');
 const lobbyScreen = document.getElementById('player-lobby-screen');
 const countdownScreen = document.getElementById('player-countdown-screen');
 const questionScreen = document.getElementById('player-question-screen');
-const lockedScreen = document.getElementById('player-locked-screen');
-const resultScreen = document.getElementById('player-result-screen');
+const waitingPodiumScreen = document.getElementById('player-waiting-podium-screen');
 const finishedScreen = document.getElementById('player-finished-screen');
 
-// Elements
+// Header Elements
 const topPlayerPill = document.getElementById('top-player-pill');
 const topPlayerAvatar = document.getElementById('top-player-avatar');
 const topPlayerName = document.getElementById('top-player-name');
 const topPlayerScore = document.getElementById('top-player-score');
 
+// Join Screen
 const joinForm = document.getElementById('join-form');
 const inputPin = document.getElementById('input-pin');
 const inputNickname = document.getElementById('input-nickname');
@@ -29,34 +31,37 @@ const avatarGrid = document.getElementById('avatar-grid');
 const joinErrorMsg = document.getElementById('join-error-msg');
 const joinErrorText = document.getElementById('join-error-text');
 
-// Lobby
+// Lobby Screen
 const lobbyConfirmedAvatar = document.getElementById('lobby-confirmed-avatar');
 const lobbyPlayerNick = document.getElementById('lobby-player-nick');
 const lobbyQuizTitle = document.getElementById('lobby-quiz-title');
 
-// Countdown
+// Countdown Screen
 const playerCountdownNum = document.getElementById('player-countdown-num');
 
-// Question
+// Question Screen
 const playerQIndex = document.getElementById('player-q-index');
 const playerQTimer = document.getElementById('player-q-timer');
 const playerQText = document.getElementById('player-q-text');
 
-// Result
-const resultStatusIconWrap = document.getElementById('result-status-icon-wrap');
-const resultStatusTitle = document.getElementById('result-status-title');
-const resultPointsEarned = document.getElementById('result-points-earned');
-const resultStreakRow = document.getElementById('result-streak-row');
-const resultStreakBonus = document.getElementById('result-streak-bonus');
-const resultCurrentRank = document.getElementById('result-current-rank');
+// Feedback Overlay
+const feedbackOverlay = document.getElementById('player-feedback-overlay');
+const feedbackIconWrap = document.getElementById('feedback-icon-wrap');
+const feedbackTitle = document.getElementById('feedback-title');
+const feedbackPoints = document.getElementById('feedback-points');
+const feedbackStreak = document.getElementById('feedback-streak');
 
-// Finished
+// Waiting for Podium Screen
+const waitingScoreDisplay = document.getElementById('waiting-score-display');
+const waitingSolvedDisplay = document.getElementById('waiting-solved-display');
+
+// Finished Screen
 const finalTrophyIcon = document.getElementById('final-trophy-icon');
 const finalRankTagline = document.getElementById('final-rank-tagline');
 const finalScoreDisplay = document.getElementById('final-score-display');
 const finalAccuracyDisplay = document.getElementById('final-accuracy-display');
 
-// Init
+// Init on load
 window.addEventListener('DOMContentLoaded', () => {
   renderAvatars();
 
@@ -140,7 +145,7 @@ function initSocketEvents() {
     lobbyPlayerNick.textContent = data.nickname;
     lobbyQuizTitle.textContent = data.quizTitle;
 
-    // Top pill
+    // Top player pill
     topPlayerAvatar.textContent = data.avatar;
     topPlayerName.textContent = data.nickname;
     topPlayerScore.textContent = '0';
@@ -175,86 +180,66 @@ function initSocketEvents() {
     }, 1000);
   });
 
-  // New question active
+  // New question active (starts race on phone)
   socket.on('player:new_question', (data) => {
-    currentQuestionIndex = data.index;
-    showScreen(questionScreen);
-
-    playerQIndex.textContent = `Q ${data.index + 1} / ${data.totalQuestions}`;
-    playerQText.textContent = data.question;
-
-    // Enable all 4 buttons and set labels
-    for (let i = 0; i < 4; i++) {
-      const btn = document.getElementById(`opt-btn-${i}`);
-      const text = document.getElementById(`opt-text-${i}`);
-      if (data.options[i]) {
-        btn.classList.remove('hidden');
-        btn.disabled = false;
-        btn.style.opacity = '1';
-        text.textContent = data.options[i];
-      } else {
-        btn.classList.add('hidden');
-      }
-    }
-
-    // Local countdown
-    clearInterval(localTimerInterval);
-    let timeLeft = data.timeLimit;
-    playerQTimer.textContent = `${timeLeft}s`;
-    localTimerInterval = setInterval(() => {
-      timeLeft--;
-      if (timeLeft >= 0) {
-        playerQTimer.textContent = `${timeLeft}s`;
-      } else {
-        clearInterval(localTimerInterval);
-      }
-    }, 1000);
+    renderQuestion(data);
   });
 
-  // Answer submitted & acknowledged
-  socket.on('player:answer_recorded', () => {
+  // Answer feedback from server (self-paced transition)
+  socket.on('player:answer_feedback', (data) => {
     clearInterval(localTimerInterval);
-    showScreen(lockedScreen);
-  });
-
-  // Question result
-  socket.on('player:question_result', (data) => {
-    clearInterval(localTimerInterval);
-    showScreen(resultScreen);
 
     currentScore = data.currentScore;
     topPlayerScore.textContent = currentScore.toLocaleString();
 
+    // Show quick feedback overlay
     if (data.isCorrect) {
       window.sounds.playCorrect();
-      resultStatusIconWrap.className = 'w-20 h-20 rounded-full mx-auto flex items-center justify-center text-4xl mb-4 shadow-lg bg-emerald-500/20 border-2 border-emerald-400 text-emerald-300';
-      resultStatusIconWrap.innerHTML = '<i class="fa-solid fa-check"></i>';
-      resultStatusTitle.textContent = 'Correct!';
-      resultStatusTitle.className = 'text-3xl font-black text-emerald-400';
-      resultPointsEarned.textContent = `+${data.pointsEarned.toLocaleString()}`;
-
+      feedbackIconWrap.className = 'w-24 h-24 rounded-full flex items-center justify-center text-5xl mb-4 shadow-2xl bg-emerald-500/20 border-2 border-emerald-400 text-emerald-300';
+      feedbackIconWrap.innerHTML = '<i class="fa-solid fa-check"></i>';
+      feedbackTitle.textContent = 'Correct!';
+      feedbackTitle.className = 'text-3xl font-black text-emerald-400 mb-2';
+      feedbackPoints.textContent = `+${data.pointsEarned.toLocaleString()} pts`;
       if (data.streakBonus > 0) {
-        resultStreakRow.classList.remove('hidden');
-        resultStreakBonus.textContent = `🔥 +${data.streakBonus} (Streak x${data.streak})`;
+        feedbackStreak.classList.remove('hidden');
+        feedbackStreak.textContent = `🔥 Streak x${data.streak} (+${data.streakBonus} bonus)`;
       } else {
-        resultStreakRow.classList.add('hidden');
+        feedbackStreak.classList.add('hidden');
       }
     } else {
       window.sounds.playIncorrect();
-      resultStatusIconWrap.className = 'w-20 h-20 rounded-full mx-auto flex items-center justify-center text-4xl mb-4 shadow-lg bg-red-500/20 border-2 border-red-400 text-red-300';
-      resultStatusIconWrap.innerHTML = '<i class="fa-solid fa-xmark"></i>';
-      resultStatusTitle.textContent = 'Incorrect!';
-      resultStatusTitle.className = 'text-3xl font-black text-red-400';
-      resultPointsEarned.textContent = '+0';
-      resultStreakRow.classList.add('hidden');
+      feedbackIconWrap.className = 'w-24 h-24 rounded-full flex items-center justify-center text-5xl mb-4 shadow-2xl bg-red-500/20 border-2 border-red-400 text-red-300';
+      feedbackIconWrap.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+      feedbackTitle.textContent = 'Incorrect!';
+      feedbackTitle.className = 'text-3xl font-black text-red-400 mb-2';
+      feedbackPoints.textContent = '+0 pts';
+      feedbackStreak.classList.add('hidden');
     }
 
-    resultCurrentRank.textContent = `#${data.currentRank} / ${data.totalPlayers}`;
+    feedbackOverlay.classList.remove('hidden');
+
+    // After 900ms, load next question or transition to waiting screen
+    setTimeout(() => {
+      feedbackOverlay.classList.add('hidden');
+
+      if (data.isFinished) {
+        // Student completed all questions!
+        waitingScoreDisplay.textContent = `${data.currentScore.toLocaleString()} pts`;
+        waitingSolvedDisplay.textContent = `${data.questionsAnswered} / ${data.totalQuestions} Solved`;
+        showScreen(waitingPodiumScreen);
+      } else if (data.nextQuestion) {
+        // Load next question immediately
+        renderQuestion(data.nextQuestion);
+      }
+    }, 900);
   });
 
-  // Tournament finished (Podium screen - music is ONLY played on main display)
+  // Tournament finished & full scores released by host
   socket.on('player:game_finished', (data) => {
+    clearInterval(localTimerInterval);
+    if (feedbackOverlay) feedbackOverlay.classList.add('hidden');
     showScreen(finishedScreen);
+
     finalScoreDisplay.textContent = data.score.toLocaleString();
     finalAccuracyDisplay.textContent = `${data.accuracy}%`;
 
@@ -280,38 +265,84 @@ function initSocketEvents() {
   });
 }
 
+// Render active question on student phone
+function renderQuestion(data) {
+  currentQuestionIndex = data.index;
+  questionTimeLimit = data.timeLimit || 20;
+  questionStartTime = Date.now();
+
+  showScreen(questionScreen);
+  if (feedbackOverlay) feedbackOverlay.classList.add('hidden');
+
+  playerQIndex.textContent = `Q ${data.index + 1} / ${data.totalQuestions}`;
+  playerQText.textContent = data.question;
+
+  // Reset and enable all 4 option buttons
+  for (let i = 0; i < 4; i++) {
+    const btn = document.getElementById(`opt-btn-${i}`);
+    const text = document.getElementById(`opt-text-${i}`);
+    if (btn && text) {
+      if (data.options[i]) {
+        btn.classList.remove('hidden', 'ring-4', 'ring-white', 'opacity-50');
+        btn.disabled = false;
+        text.textContent = data.options[i];
+      } else {
+        btn.classList.add('hidden');
+      }
+    }
+  }
+
+  // Question local timer
+  clearInterval(localTimerInterval);
+  let timeLeft = questionTimeLimit;
+  playerQTimer.textContent = `${timeLeft}s`;
+
+  localTimerInterval = setInterval(() => {
+    timeLeft--;
+    if (timeLeft >= 0) {
+      playerQTimer.textContent = `${timeLeft}s`;
+    } else {
+      clearInterval(localTimerInterval);
+      // Timeout auto-submit (incorrect)
+      submitAnswer(-1);
+    }
+  }, 1000);
+}
+
 // Submit Answer handler
 function submitAnswer(index) {
   if (currentQuestionIndex < 0) return;
+  clearInterval(localTimerInterval);
 
-  // Visual disable
+  // Disable buttons to prevent double-submit
   for (let i = 0; i < 4; i++) {
     const btn = document.getElementById(`opt-btn-${i}`);
     if (btn) btn.disabled = true;
   }
 
-  const selectedBtn = document.getElementById(`opt-btn-${index}`);
-  if (selectedBtn) {
-    selectedBtn.classList.add('ring-4', 'ring-white');
+  if (index >= 0) {
+    const selectedBtn = document.getElementById(`opt-btn-${index}`);
+    if (selectedBtn) selectedBtn.classList.add('ring-4', 'ring-white');
   }
+
+  const timeTakenMs = Math.max(100, Date.now() - questionStartTime);
 
   socket.emit('player:submit_answer', {
     questionIndex: currentQuestionIndex,
-    selectedIndex: index
+    selectedIndex: index,
+    timeTakenMs
   });
-
-  showScreen(lockedScreen);
 }
 
-// UI helper
+// UI helper: screen switcher
 function showScreen(screenEl) {
-  [joinScreen, lobbyScreen, countdownScreen, questionScreen, lockedScreen, resultScreen, finishedScreen].forEach(el => {
-    el.classList.add('hidden');
+  [joinScreen, lobbyScreen, countdownScreen, questionScreen, waitingPodiumScreen, finishedScreen].forEach(el => {
+    if (el) el.classList.add('hidden');
   });
-  screenEl.classList.remove('hidden');
+  if (screenEl) screenEl.classList.remove('hidden');
 }
 
-// Reset view for student to join another quiz
+// Reset view for student to join another quiz directly
 window.giveAnotherQuiz = function() {
   currentQuestionIndex = -1;
   currentScore = 0;

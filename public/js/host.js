@@ -1,4 +1,4 @@
-// Host / Display Logic
+// Host / Display Logic - Live Stadium Pitch Arena
 const socket = window.realtimeEngine;
 
 // State
@@ -8,21 +8,20 @@ let currentQuizData = null;
 let networkIPs = [];
 let selectedIP = window.location.hostname;
 let selectedPort = window.location.port || '3000';
-let activeTimerInterval = null;
-let currentQuestionTimeLimit = 20;
 let finalStandings = [];
-let currentAnswers = new Map();
-let currentHostPlayers = new Map();
+let currentLeaderboardPlayers = [];
+let currentTotalQuestions = 5;
+let raceChartInstance = null;
+let podiumChartInstance = null;
 
-// DOM Elements
+// Screens
 const lobbyScreen = document.getElementById('lobby-screen');
 const countdownOverlay = document.getElementById('countdown-overlay');
 const countdownNum = document.getElementById('countdown-num');
-const questionScreen = document.getElementById('question-screen');
-const resultScreen = document.getElementById('result-screen');
-const leaderboardScreen = document.getElementById('leaderboard-screen');
+const raceScreen = document.getElementById('race-screen');
 const podiumScreen = document.getElementById('podium-screen');
 
+// Lobby Elements
 const headerQuizTitle = document.getElementById('header-quiz-title');
 const lobbyPinDisplay = document.getElementById('lobby-pin-display');
 const lobbyQrImg = document.getElementById('lobby-qr-img');
@@ -42,41 +41,24 @@ const soundBtn = document.getElementById('sound-btn');
 const soundIcon = document.getElementById('sound-icon');
 const fullscreenBtn = document.getElementById('fullscreen-btn');
 
-// Timer elements
-const timerNumber = document.getElementById('timer-number');
-const timerRing = document.getElementById('timer-ring');
-const answeredCounterText = document.getElementById('answered-counter-text');
-const skipQuestionBtn = document.getElementById('skip-question-btn');
+// Race Screen Elements
+const raceQuizTitle = document.getElementById('race-quiz-title');
+const raceProgressCount = document.getElementById('race-progress-count');
+const raceProgressBar = document.getElementById('race-progress-bar');
+const raceStatusNote = document.getElementById('race-status-note');
+const viewTabPitch = document.getElementById('view-tab-pitch');
+const viewTabChart = document.getElementById('view-tab-chart');
+const releaseScoresBtn = document.getElementById('release-scores-btn');
+const raceTickerText = document.getElementById('race-ticker-text');
+const pitchViewContainer = document.getElementById('pitch-view-container');
+const chartViewContainer = document.getElementById('chart-view-container');
+const racersLanesContainer = document.getElementById('racers-lanes-container');
 
-// Question display elements
-const questionIndexBadge = document.getElementById('question-index-badge');
-const questionCategoryBadge = document.getElementById('question-category-badge');
-const liveQuestionText = document.getElementById('live-question-text');
-
-// Result elements
-const showLeaderboardBtn = document.getElementById('show-leaderboard-btn');
-const statAccuracy = document.getElementById('stat-accuracy');
-const statFastest = document.getElementById('stat-fastest');
-const statFastestName = document.getElementById('stat-fastest-name');
-const resultExplanationText = document.getElementById('result-explanation-text');
-
-// Leaderboard elements
-const leaderboardList = document.getElementById('leaderboard-list');
-const leaderboardGraphView = document.getElementById('leaderboard-graph-view');
-const lbTabCardsBtn = document.getElementById('lb-tab-cards-btn');
-const lbTabGraphBtn = document.getElementById('lb-tab-graph-btn');
-const nextQuestionBtn = document.getElementById('next-question-btn');
-const nextQuestionBtnText = document.getElementById('next-question-btn-text');
-
-let currentLeaderboardPlayers = [];
-let raceChartInstance = null;
-let podiumChartInstance = null;
-
-// Podium elements
+// Podium Elements
 const downloadResultsBtn = document.getElementById('download-results-btn');
 const fullStandingsTable = document.getElementById('full-standings-table');
 
-// Initialize on load
+// Initialize on DOM Ready
 window.addEventListener('DOMContentLoaded', async () => {
   const urlParams = new URLSearchParams(window.location.search);
   currentQuizId = urlParams.get('quizId') || 'quiz_tech_stars';
@@ -85,7 +67,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   initHostEvents();
   initSoundToggle();
   initFullscreen();
-  initLeaderboardTabs();
+  initRaceViewTabs();
 
   // Create game session
   if (window.supabaseManager && window.supabaseManager.isConfigured()) {
@@ -94,7 +76,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     currentGamePin = localPin;
     socket.init('host', localPin);
 
-    // Fetch quiz data from Supabase or fallback
     let quiz = null;
     try {
       const { data } = await window.supabaseManager.client.from('quizzes').select('*').eq('id', currentQuizId).single();
@@ -115,7 +96,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
     currentQuizData = quiz;
 
-    // Trigger local creation
     socket.trigger('host:game_created', {
       pin: localPin,
       quizTitle: quiz.title,
@@ -123,20 +103,20 @@ window.addEventListener('DOMContentLoaded', async () => {
       category: quiz.category
     });
   } else {
-    // Socket.io Mode (Node backend)
+    // Render Node.js Mode
     socket.init('host', null);
     socket.emit('host:create_game', { quizId: currentQuizId });
   }
 });
 
-// Setup IP detection & selector
+// Network IP Discovery
 async function initNetworkIPs() {
   const isCloudHost = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
 
   try {
-    const res = await fetch('/api/network-ips');
+    const res = await fetch('/api/network-ip');
     const data = await res.json();
-    networkIPs = data.ips || [];
+    networkIPs = data.interfaces || [];
     selectedPort = data.port || '3000';
 
     networkIpSelect.innerHTML = '';
@@ -144,13 +124,12 @@ async function initNetworkIPs() {
     if (isCloudHost) {
       const cloudOpt = document.createElement('option');
       cloudOpt.value = window.location.hostname;
-      cloudOpt.textContent = `🌐 ${window.location.hostname} (Live Cloud)`;
+      cloudOpt.textContent = `🌐 Public Cloud (${window.location.hostname})`;
       cloudOpt.selected = true;
       networkIpSelect.appendChild(cloudOpt);
       selectedIP = window.location.hostname;
     }
 
-    // Prefer Wi-Fi or LAN IP
     let preferred = networkIPs.find(n => n.isPreferred) || networkIPs[0];
 
     networkIPs.forEach(n => {
@@ -161,7 +140,6 @@ async function initNetworkIPs() {
       networkIpSelect.appendChild(opt);
     });
 
-    // Also add localhost option
     const localOpt = document.createElement('option');
     localOpt.value = 'localhost';
     localOpt.textContent = `💻 Localhost (This PC)`;
@@ -211,7 +189,7 @@ async function updateQRCode() {
     }
   } catch (err) {}
 
-  // Fallback for Hostinger Static Hosting (Fast public QR generator)
+  // Fallback public QR generator
   lobbyQrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(joinUrl)}`;
   lobbyQrImg.onload = () => qrLoading.classList.add('hidden');
   lobbyQrImg.onerror = () => qrLoading.classList.add('hidden');
@@ -222,8 +200,10 @@ function initHostEvents() {
   // Game created
   socket.on('host:game_created', ({ pin, quizTitle, questionCount, category }) => {
     currentGamePin = pin;
+    currentTotalQuestions = questionCount || 5;
     lobbyPinDisplay.textContent = `${pin.slice(0, 3)} ${pin.slice(3)}`;
     headerQuizTitle.textContent = quizTitle;
+    raceQuizTitle.textContent = quizTitle;
     document.getElementById('quiz-title-badge').classList.remove('hidden');
     quizSummaryInfo.textContent = `${questionCount} Questions &bull; ${category || 'Quiz'}`;
 
@@ -241,11 +221,10 @@ function initHostEvents() {
       startGameBtn.setAttribute('disabled', 'true');
     }
 
-    // Play subtle enter chirp
     window.sounds.playCountdownTick(800, 0.05);
   });
 
-  // Start countdown
+  // Start countdown (3-2-1)
   socket.on('game:countdown', ({ seconds }) => {
     showScreen(countdownOverlay);
     let count = seconds;
@@ -261,117 +240,68 @@ function initHostEvents() {
         countdownNum.textContent = 'GO!';
         window.sounds.playGoBeep();
         clearInterval(intv);
+
+        // Switch straight to the LIVE RACE ARENA!
+        setTimeout(() => {
+          showScreen(raceScreen);
+          window.sounds.playOngoingMusic();
+        }, 500);
       }
     }, 1000);
   });
 
-  // New Question active
-  socket.on('host:new_question', (data) => {
+  // Real-time race update from student answers
+  socket.on('host:race_update', (data) => {
     countdownOverlay.classList.add('hidden');
-    showScreen(questionScreen);
-
-    // Play ongoing quiz background music
-    window.sounds.playOngoingMusic();
-
-    questionIndexBadge.textContent = `Q ${data.index + 1} / ${data.totalQuestions}`;
-    questionCategoryBadge.textContent = data.category || 'Trivia';
-    liveQuestionText.textContent = data.question;
-    answeredCounterText.textContent = `0 / ${data.totalPlayers} Answered`;
-
-    // Render 4 options
-    for (let i = 0; i < 4; i++) {
-      const optEl = document.getElementById(`host-opt-${i}`);
-      const textEl = document.getElementById(`host-opt-text-${i}`);
-      const countEl = document.getElementById(`host-opt-count-${i}`);
-
-      if (data.options[i]) {
-        optEl.classList.remove('hidden');
-        textEl.textContent = data.options[i];
-        countEl.classList.add('hidden');
-        countEl.textContent = '0';
-        // Reset classes
-        optEl.classList.remove('opacity-30', 'ring-4', 'ring-emerald-400', 'scale-105');
-      } else {
-        optEl.classList.add('hidden');
-      }
+    if (raceScreen.classList.contains('hidden')) {
+      showScreen(raceScreen);
+      window.sounds.playOngoingMusic();
     }
 
-    // Start timer animation
-    currentQuestionTimeLimit = data.timeLimit || 20;
-    startQuestionTimer(currentQuestionTimeLimit);
-  });
+    currentLeaderboardPlayers = data.players || [];
+    currentTotalQuestions = data.totalQuestions || currentTotalQuestions;
 
-  // Live answer count
-  socket.on('host:answer_count_update', ({ answeredCount, totalPlayers }) => {
-    answeredCounterText.textContent = `${answeredCount} / ${totalPlayers} Answered`;
-  });
+    // Render racers gliding on the pitch
+    renderPitchLanes(data.players, currentTotalQuestions);
 
-  // Question Result
-  socket.on('host:question_result', (data) => {
-    clearInterval(activeTimerInterval);
-    showScreen(resultScreen);
-    window.sounds.stopOngoingMusic();
-    window.sounds.playTimesUp();
+    // Update progress counters
+    raceProgressCount.textContent = `${data.finishedCount} / ${data.totalPlayers}`;
+    const pct = data.totalPlayers > 0 ? Math.round((data.finishedCount / data.totalPlayers) * 100) : 0;
+    raceProgressBar.style.width = `${pct}%`;
 
-    // Highlight correct option in small preview
-    statAccuracy.textContent = `Accuracy: ${data.accuracyPercent}%`;
-    if (data.fastestPlayer) {
-      statFastest.classList.remove('hidden');
-      statFastestName.textContent = `Fastest: ${data.fastestPlayer}`;
+    if (data.allFinished) {
+      raceStatusNote.textContent = '🎉 All students have finished! Ready to release final scores!';
+      raceStatusNote.className = 'text-[11px] text-emerald-400 font-extrabold mt-1 animate-pulse';
+      releaseScoresBtn.classList.add('animate-bounce', 'ring-4', 'ring-amber-300');
     } else {
-      statFastest.classList.add('hidden');
+      raceStatusNote.textContent = `${data.finishedCount} of ${data.totalPlayers} students finished (${pct}%)`;
+      raceStatusNote.className = 'text-[11px] text-slate-400 mt-1';
     }
 
-    resultExplanationText.textContent = data.explanation || 'No explanation provided.';
-
-    // Populate chart bars
-    const maxVotes = Math.max(...data.optionCounts, 1);
-    data.optionCounts.forEach((count, idx) => {
-      const bar = document.getElementById(`chart-bar-${idx}`);
-      const text = document.getElementById(`chart-count-${idx}`);
-      text.textContent = count;
-
-      const heightPercent = Math.max(8, Math.round((count / maxVotes) * 100));
-      bar.style.height = `${heightPercent}%`;
-
-      // Highlight correct answer bar
-      if (idx === data.correctIndex) {
-        bar.classList.add('ring-4', 'ring-emerald-400');
-      } else {
-        bar.classList.remove('ring-4', 'ring-emerald-400');
-      }
-    });
-  });
-
-  // Leaderboard data
-  socket.on('host:leaderboard_data', ({ players, currentIndex, totalQuestions, isLastQuestion }) => {
-    showScreen(leaderboardScreen);
-    window.sounds.playLeaderboardFanfare();
-    currentLeaderboardPlayers = players;
-    renderLeaderboard(players);
-
-    if (leaderboardGraphView && !leaderboardGraphView.classList.contains('hidden')) {
-      renderRaceChart(players, 'race-chart-canvas');
+    if (data.latestEvent) {
+      raceTickerText.textContent = data.latestEvent;
     }
 
-    if (isLastQuestion) {
-      nextQuestionBtnText.textContent = 'VIEW GRAND PODIUM 🏆';
-    } else {
-      nextQuestionBtnText.textContent = 'NEXT QUESTION ➔';
+    // Update real-time battle graph if active
+    if (chartViewContainer && !chartViewContainer.classList.contains('hidden')) {
+      renderRaceChart(data.players, 'race-live-chart-canvas');
     }
   });
 
-  // Grand Finale
+  // Grand Finale - declared when Host clicks "RELEASE FULL SCORE"
   socket.on('host:game_finished', (data) => {
     showScreen(podiumScreen);
     finalStandings = data.allPlayers;
-    window.sounds.playVictory();
+
+    // Switch music to finale on display screen
+    window.sounds.stopOngoingMusic();
+    window.sounds.playTournamentEndMusic();
 
     // Trigger celebration confetti
     triggerConfetti();
 
-    // Render 1st, 2nd, 3rd
-    const [p1, p2, p3] = data.podium;
+    // Render 1st, 2nd, 3rd podium pillars
+    const [p1, p2, p3] = data.podium || [];
     if (p1) {
       document.getElementById('podium-p1-avatar').textContent = p1.avatar;
       document.getElementById('podium-p1-name').textContent = p1.nickname;
@@ -388,72 +318,113 @@ function initHostEvents() {
       document.getElementById('podium-p3-score').textContent = `${p3.score.toLocaleString()} pts`;
     }
 
-    // Render full scoreboard
+    // Render full standings table
     renderFullStandings(data.allPlayers);
 
-    // Render tournament battle timeline graph (Who was ahead of whom)
+    // Render tournament battle timeline graph
     setTimeout(() => {
       renderRaceChart(data.allPlayers, 'podium-race-chart');
     }, 400);
   });
 }
 
-// Timer Controller
-function startQuestionTimer(seconds) {
-  clearInterval(activeTimerInterval);
-  let timeLeft = seconds;
-  const circumference = 2 * Math.PI * 24; // r=24 -> ~150.79
+// Render dynamic runner cards across the stadium pitch
+function renderPitchLanes(players, totalQuestions) {
+  if (!racersLanesContainer) return;
+  racersLanesContainer.innerHTML = '';
 
-  timerNumber.textContent = timeLeft;
-  timerRing.style.strokeDasharray = circumference;
-  timerRing.style.strokeDashoffset = 0;
-  timerRing.setAttribute('stroke', '#8b5cf6');
-
-  activeTimerInterval = setInterval(() => {
-    timeLeft--;
-    timerNumber.textContent = timeLeft;
-
-    const progress = (seconds - timeLeft) / seconds;
-    timerRing.style.strokeDashoffset = circumference * progress;
-
-    if (timeLeft <= 5 && timeLeft > 0) {
-      timerRing.setAttribute('stroke', '#ef4444');
-      window.sounds.playTimerTick(true);
-    } else if (timeLeft > 0) {
-      window.sounds.playTimerTick(false);
-    }
-
-    if (timeLeft <= 0) {
-      clearInterval(activeTimerInterval);
-    }
-  }, 1000);
-}
-
-// Render Players in Lobby
-function renderPlayersGrid(players) {
   if (!players || players.length === 0) {
-    noPlayersMsg.classList.remove('hidden');
-    playersGrid.innerHTML = '';
-    playersGrid.appendChild(noPlayersMsg);
+    racersLanesContainer.innerHTML = '<div class="text-center text-slate-400 py-16 text-sm font-semibold">Racers lining up at the start line...</div>';
     return;
   }
 
-  noPlayersMsg.classList.add('hidden');
+  const totalQ = totalQuestions || 5;
+
+  players.forEach((p) => {
+    const lane = document.createElement('div');
+    lane.className = 'racer-lane-card relative w-full h-14 rounded-2xl bg-black/40 border border-emerald-500/20 flex items-center px-2 overflow-hidden transition-all duration-300 hover:border-emerald-400/40';
+
+    // Calculate progression percentage across the pitch
+    const questionsAnswered = p.questionsAnswered || 0;
+    let posPercent = 0;
+
+    if (p.isFinished) {
+      posPercent = 86; // Crosses the finish line!
+    } else if (totalQ > 0) {
+      posPercent = Math.min(84, (questionsAnswered / totalQ) * 84);
+    }
+
+    let rankBadgeClass = 'bg-slate-800 text-slate-300 border border-white/10';
+    let rankText = `#${p.rank}`;
+    let borderHighlight = '';
+
+    if (p.rank === 1) {
+      rankBadgeClass = 'bg-amber-400 text-slate-950 font-black shadow-lg shadow-amber-400/40';
+      rankText = '👑 #1';
+      borderHighlight = 'border-amber-400/60 shadow-md shadow-amber-400/20';
+    } else if (p.rank === 2) {
+      rankBadgeClass = 'bg-slate-300 text-slate-950 font-black';
+      rankText = '🥈 #2';
+    } else if (p.rank === 3) {
+      rankBadgeClass = 'bg-amber-700 text-white font-black';
+      rankText = '🥉 #3';
+    }
+
+    const statusBadge = p.isFinished
+      ? '<span class="text-[10px] font-black bg-amber-400 text-slate-950 px-2 py-0.5 rounded-full shadow">🏁 FINISHED</span>'
+      : `<span class="text-[10px] font-bold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/30">Q ${questionsAnswered}/${totalQ}</span>`;
+
+    const streakBadge = (p.streak && p.streak >= 2)
+      ? `<span class="text-[10px] font-black text-orange-400 bg-orange-500/20 px-1.5 py-0.5 rounded border border-orange-500/40">🔥 x${p.streak}</span>`
+      : '';
+
+    lane.innerHTML = `
+      <!-- Lane guideline -->
+      <div class="absolute inset-x-0 h-px bg-emerald-500/15 top-1/2 -translate-y-1/2 pointer-events-none"></div>
+
+      <!-- Sliding runner entity -->
+      <div class="runner-entity absolute flex items-center space-x-2 transition-all duration-700 ease-out z-10" style="left: ${posPercent}%;">
+        <div class="px-2 py-0.5 rounded-lg text-xs font-black shrink-0 ${rankBadgeClass}">
+          ${rankText}
+        </div>
+        <div class="text-3xl filter drop-shadow animate-pulse">${p.avatar || '🚀'}</div>
+        <div class="glass-card px-3 py-1 rounded-xl flex items-center space-x-2 border border-white/20 shadow-xl bg-slate-900/90 ${borderHighlight}">
+          <span class="font-extrabold text-white text-xs whitespace-nowrap">${escapeHtml(p.nickname)}</span>
+          <span class="font-mono font-bold text-amber-300 text-xs">${p.score.toLocaleString()} pts</span>
+          ${statusBadge}
+          ${streakBadge}
+        </div>
+      </div>
+    `;
+
+    racersLanesContainer.appendChild(lane);
+  });
+}
+
+// Render Lobby Players Grid
+function renderPlayersGrid(players) {
   playersGrid.innerHTML = '';
 
-  players.forEach(p => {
-    const chip = document.createElement('div');
-    chip.className = 'glass-card rounded-2xl p-3 flex items-center justify-between border border-white/10 hover:border-violet-500/50 transition group scale-pop';
-    chip.innerHTML = `
-      <div class="flex items-center space-x-2.5 truncate">
-        <span class="text-2xl">${p.avatar || '🚀'}</span>
-        <span class="font-bold text-white text-sm truncate">${escapeHtml(p.nickname)}</span>
+  if (!players || players.length === 0) {
+    noPlayersMsg.classList.remove('hidden');
+    return;
+  }
+  noPlayersMsg.classList.add('hidden');
+
+  players.forEach((p, idx) => {
+    const card = document.createElement('div');
+    card.className = 'glass-card p-3 rounded-2xl flex items-center space-x-3 border border-white/10 hover:border-violet-500/50 transition transform hover:-translate-y-0.5 scale-pop relative group';
+    card.innerHTML = `
+      <div class="text-3xl">${p.avatar || '🚀'}</div>
+      <div class="truncate flex-1">
+        <div class="font-extrabold text-white text-sm truncate">${escapeHtml(p.nickname)}</div>
+        <div class="text-[11px] text-slate-400">Ready to Race</div>
       </div>
-      <button class="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 text-xs p-1 transition" title="Kick player" onclick="kickPlayer('${p.id}')">
-        <i class="fa-solid fa-times"></i>
+      <button onclick="kickPlayer('${p.id}')" title="Remove student" class="opacity-0 group-hover:opacity-100 transition p-1 text-slate-400 hover:text-red-400 text-xs">
+        <i class="fa-solid fa-xmark"></i>
       </button>
     `;
-    playersGrid.appendChild(chip);
+    playersGrid.appendChild(card);
   });
 }
 
@@ -461,72 +432,27 @@ window.kickPlayer = function(playerId) {
   socket.emit('host:kick_player', { playerId });
 };
 
-// Render Leaderboard
-function renderLeaderboard(players) {
-  leaderboardList.innerHTML = '';
+// View Tabs: Stadium Pitch vs Live Battle Graph
+function initRaceViewTabs() {
+  if (!viewTabPitch || !viewTabChart) return;
 
-  players.forEach((p, index) => {
-    const row = document.createElement('div');
-    let rankColor = 'bg-slate-800 text-slate-300';
-    let medal = '';
+  viewTabPitch.addEventListener('click', () => {
+    viewTabPitch.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition bg-emerald-600 text-white shadow flex items-center space-x-1.5';
+    viewTabChart.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-300 hover:text-white flex items-center space-x-1.5';
+    pitchViewContainer.classList.remove('hidden');
+    chartViewContainer.classList.add('hidden');
+  });
 
-    if (index === 0) {
-      rankColor = 'bg-amber-400 text-slate-950 font-black shadow-lg shadow-amber-500/30';
-      medal = '👑';
-    } else if (index === 1) {
-      rankColor = 'bg-slate-300 text-slate-950 font-black';
-      medal = '🥈';
-    } else if (index === 2) {
-      rankColor = 'bg-amber-700 text-white font-black';
-      medal = '🥉';
-    }
-
-    const streakBadge = p.streak >= 2 
-      ? `<span class="px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-400 text-xs font-black border border-orange-500/40">🔥 x${p.streak}</span>`
-      : '';
-
-    row.className = 'glass-card rounded-2xl p-3.5 flex items-center justify-between transition duration-200 hover:border-violet-500/40 scale-pop';
-    row.innerHTML = `
-      <div class="flex items-center space-x-3.5">
-        <div class="w-9 h-9 rounded-xl ${rankColor} flex items-center justify-center font-extrabold text-sm shrink-0">
-          ${p.rank}
-        </div>
-        <div class="text-3xl">${p.avatar || '🚀'}</div>
-        <div class="flex items-center space-x-2">
-          <span class="font-extrabold text-white text-base">${escapeHtml(p.nickname)}</span>
-          ${medal ? `<span class="text-sm">${medal}</span>` : ''}
-          ${streakBadge}
-        </div>
-      </div>
-      <div class="font-mono font-black text-violet-300 text-lg">
-        ${p.score.toLocaleString()} <span class="text-xs text-slate-400 font-sans font-normal">pts</span>
-      </div>
-    `;
-    leaderboardList.appendChild(row);
+  viewTabChart.addEventListener('click', () => {
+    viewTabChart.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition bg-emerald-600 text-white shadow flex items-center space-x-1.5';
+    viewTabPitch.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-300 hover:text-white flex items-center space-x-1.5';
+    pitchViewContainer.classList.add('hidden');
+    chartViewContainer.classList.remove('hidden');
+    renderRaceChart(currentLeaderboardPlayers, 'race-live-chart-canvas');
   });
 }
 
-// Leaderboard Tabs (Ranks vs Race Graph)
-function initLeaderboardTabs() {
-  if (!lbTabCardsBtn || !lbTabGraphBtn) return;
-
-  lbTabCardsBtn.addEventListener('click', () => {
-    lbTabCardsBtn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition bg-violet-600 text-white shadow';
-    lbTabGraphBtn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition text-slate-300 hover:text-white';
-    if (leaderboardList) leaderboardList.classList.remove('hidden');
-    if (leaderboardGraphView) leaderboardGraphView.classList.add('hidden');
-  });
-
-  lbTabGraphBtn.addEventListener('click', () => {
-    lbTabGraphBtn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition bg-violet-600 text-white shadow';
-    lbTabCardsBtn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition text-slate-300 hover:text-white';
-    if (leaderboardList) leaderboardList.classList.add('hidden');
-    if (leaderboardGraphView) leaderboardGraphView.classList.remove('hidden');
-    renderRaceChart(currentLeaderboardPlayers, 'race-chart-canvas');
-  });
-}
-
-// Render Live Race Graph (Who is Ahead of Whom)
+// Render Live Race Trajectory Chart (Chart.js)
 function renderRaceChart(players, canvasId) {
   if (typeof Chart === 'undefined') return;
   const canvas = document.getElementById(canvasId);
@@ -534,7 +460,6 @@ function renderRaceChart(players, canvasId) {
 
   if (!players || players.length === 0) return;
 
-  // Track top 8 players for visual clarity
   const topPlayers = players.slice(0, 8);
 
   const vibrantColors = [
@@ -579,7 +504,7 @@ function renderRaceChart(players, canvasId) {
     };
   });
 
-  if (canvasId === 'race-chart-canvas' && raceChartInstance) {
+  if (canvasId === 'race-live-chart-canvas' && raceChartInstance) {
     raceChartInstance.destroy();
     raceChartInstance = null;
   } else if (canvasId === 'podium-race-chart' && podiumChartInstance) {
@@ -629,25 +554,18 @@ function renderRaceChart(players, canvasId) {
       },
       scales: {
         x: {
-          grid: {
-            color: 'rgba(255, 255, 255, 0.06)'
-          },
-          ticks: {
-            color: '#94a3b8',
-            font: { weight: 'bold' }
-          },
+          grid: { color: 'rgba(255, 255, 255, 0.06)' },
+          ticks: { color: '#94a3b8', font: { weight: 'bold' } },
           title: {
             display: true,
-            text: 'Timeline / Questions Attempted',
+            text: 'Timeline / Questions Solved',
             color: '#64748b',
             font: { size: 11, weight: '600' }
           }
         },
         y: {
           beginAtZero: true,
-          grid: {
-            color: 'rgba(255, 255, 255, 0.06)'
-          },
+          grid: { color: 'rgba(255, 255, 255, 0.06)' },
           ticks: {
             color: '#94a3b8',
             font: { weight: 'bold' },
@@ -666,14 +584,14 @@ function renderRaceChart(players, canvasId) {
     }
   });
 
-  if (canvasId === 'race-chart-canvas') {
+  if (canvasId === 'race-live-chart-canvas') {
     raceChartInstance = newChart;
   } else if (canvasId === 'podium-race-chart') {
     podiumChartInstance = newChart;
   }
 }
 
-// Render Full Standings Table
+// Render Full Standings Table on Grand Podium
 function renderFullStandings(players) {
   fullStandingsTable.innerHTML = '';
   players.forEach(p => {
@@ -694,7 +612,7 @@ function renderFullStandings(players) {
   });
 }
 
-// Confetti Blast
+// Confetti Blast on Podium
 function triggerConfetti() {
   if (typeof confetti === 'function') {
     const duration = 4000;
@@ -720,12 +638,12 @@ function triggerConfetti() {
   }
 }
 
-// UI Helpers
+// UI Screen Switcher
 function showScreen(screenEl) {
-  [lobbyScreen, questionScreen, resultScreen, leaderboardScreen, podiumScreen].forEach(el => {
-    el.classList.add('hidden');
+  [lobbyScreen, raceScreen, podiumScreen].forEach(el => {
+    if (el) el.classList.add('hidden');
   });
-  screenEl.classList.remove('hidden');
+  if (screenEl) screenEl.classList.remove('hidden');
 }
 
 function escapeHtml(str) {
@@ -745,24 +663,14 @@ copyLinkBtn.addEventListener('click', () => {
   });
 });
 
-// Start button
+// Start Tournament button
 startGameBtn.addEventListener('click', () => {
   socket.emit('host:start_game');
 });
 
-// Skip question button
-skipQuestionBtn.addEventListener('click', () => {
-  socket.emit('host:reveal_answer');
-});
-
-// Show leaderboard
-showLeaderboardBtn.addEventListener('click', () => {
-  socket.emit('host:show_leaderboard');
-});
-
-// Next question
-nextQuestionBtn.addEventListener('click', () => {
-  socket.emit('host:next_question');
+// Release Full Scores & Declare Podium button
+releaseScoresBtn.addEventListener('click', () => {
+  socket.emit('host:release_scores');
 });
 
 // Sound Toggle
@@ -773,7 +681,7 @@ function initSoundToggle() {
   });
 }
 
-// Fullscreen
+// Fullscreen Toggle
 function initFullscreen() {
   fullscreenBtn.addEventListener('click', () => {
     if (!document.fullscreenElement) {
@@ -802,7 +710,7 @@ downloadResultsBtn.addEventListener('click', () => {
   URL.revokeObjectURL(url);
 });
 
-// Test Bot Simulator (Allows host to test tournament immediately)
+// Test Bot Simulator (Allows host to test self-paced live race immediately)
 addBotBtn.addEventListener('click', () => {
   const botNames = ['Alex_Pro', 'Sam_Quizzer', 'Nova_Tech', 'Pixel_Genius', 'Rocket_Ace', 'Cyber_Fox'];
   const botAvatars = ['🦊', '👾', '🚀', '⚡', '🦁', '🎯'];
@@ -817,15 +725,27 @@ addBotBtn.addEventListener('click', () => {
     avatar: randomAvatar
   });
 
-  // Automatically answer incoming questions after random delay
-  botSocket.on('player:new_question', (data) => {
-    const delay = Math.random() * 3000 + 1500;
+  function botAnswerQuestion(qData) {
+    const delay = Math.random() * 2500 + 1200; // 1.2s to 3.7s
     setTimeout(() => {
-      const randomPick = Math.floor(Math.random() * data.options.length);
+      const pick = Math.floor(Math.random() * (qData.options?.length || 4));
       botSocket.emit('player:submit_answer', {
-        questionIndex: data.index,
-        selectedIndex: randomPick
+        questionIndex: qData.index,
+        selectedIndex: pick,
+        timeTakenMs: Math.round(delay)
       });
     }, delay);
+  }
+
+  // When race starts, bot receives Q0
+  botSocket.on('player:new_question', (data) => {
+    botAnswerQuestion(data);
+  });
+
+  // When bot answers, it receives feedback and next question
+  botSocket.on('player:answer_feedback', (data) => {
+    if (data.nextQuestion && !data.isFinished) {
+      botAnswerQuestion(data.nextQuestion);
+    }
   });
 });

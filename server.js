@@ -367,6 +367,7 @@ io.on('connection', (socket) => {
   });
 
   // 3. Host starts tournament
+  // 3. Host starts tournament race
   socket.on('host:start_game', () => {
     const room = rooms.get(socket.gamePin);
     if (!room || room.hostSocketId !== socket.id) return;
@@ -379,83 +380,111 @@ io.on('connection', (socket) => {
     io.to(`room_${room.pin}`).emit('game:countdown', { seconds: 3 });
 
     setTimeout(() => {
-      startQuestion(room, 0);
+      startRace(room);
     }, 3200);
   });
 
-  // Start a specific question
-  function startQuestion(room, index) {
-    if (index >= room.quiz.questions.length) {
-      // Tournament finished!
-      finishTournament(room);
-      return;
+  // Start the live self-paced race
+  function startRace(room) {
+    room.status = 'RACE_ACTIVE';
+    room.raceStartTime = Date.now();
+
+    const totalQuestions = room.quiz.questions.length;
+    const q0 = room.quiz.questions[0];
+
+    // Deliver question 1 to each student's phone
+    for (const player of room.players.values()) {
+      player.currentQuestionIndex = 0;
+      player.questionsAnswered = 0;
+      player.isFinished = false;
+      player.score = 0;
+      player.correctCount = 0;
+      player.streak = 0;
+      player.scoreHistory = [0];
+      player.attemptHistory = [0];
+      player.timeHistory = [0];
+      player.questionStartTime = Date.now();
+
+      const timeLimit = room.settings.overrideTimeLimit || q0.timeLimit || 20;
+      io.to(player.socketId).emit('player:new_question', {
+        index: 0,
+        totalQuestions,
+        question: q0.question,
+        options: q0.options,
+        timeLimit
+      });
     }
 
-    room.currentQuestionIndex = index;
-    room.status = 'QUESTION_ACTIVE';
-    room.answersSubmitted.clear();
-
-    const rawQ = room.quiz.questions[index];
-    const timeLimit = room.settings.overrideTimeLimit || rawQ.timeLimit || 20;
-    room.questionTimeLimit = timeLimit;
-    room.questionStartTime = Date.now();
-
-    // Prepare host payload (includes full info)
-    const hostQuestionPayload = {
-      index,
-      totalQuestions: room.quiz.questions.length,
-      question: rawQ.question,
-      options: rawQ.options,
-      timeLimit,
-      points: rawQ.points || 1000,
-      category: room.quiz.category,
-      totalPlayers: room.players.size
-    };
-
-    // Prepare player payload (options with clean labels)
-    const playerQuestionPayload = {
-      index,
-      totalQuestions: room.quiz.questions.length,
-      question: rawQ.question,
-      options: rawQ.options,
-      timeLimit
-    };
-
-    io.to(room.hostSocketId).emit('host:new_question', hostQuestionPayload);
-    // Emit to all players in the room
-    for (const [pid, player] of room.players.entries()) {
-      io.to(player.socketId).emit('player:new_question', playerQuestionPayload);
-    }
-
-    // Set server-side auto timer
-    if (room.questionTimer) clearTimeout(room.questionTimer);
-    room.questionTimer = setTimeout(() => {
-      endQuestion(room);
-    }, (timeLimit + 0.5) * 1000);
+    // Broadcast race started to host display
+    sendRaceUpdate(room, '🏁 The Live Tournament Race has started! Students are solving questions on their phones.');
   }
 
-  // 4. Player submits answer
-  socket.on('player:submit_answer', ({ questionIndex, selectedIndex }) => {
+  // Broadcast real-time pitch standings to host display
+  function sendRaceUpdate(room, latestEvent = null) {
+    const totalPlayers = room.players.size;
+    const totalQuestions = room.quiz.questions.length;
+
+    const sorted = Array.from(room.players.values())
+      .sort((a, b) => b.score - a.score || b.correctCount - a.correctCount || (a.timeHistory[a.timeHistory.length - 1] || 0) - (b.timeHistory[b.timeHistory.length - 1] || 0));
+
+    let finishedCount = 0;
+    const racers = sorted.map((p, idx) => {
+      if (p.isFinished) finishedCount++;
+      const progress = totalQuestions > 0 ? Math.min(100, Math.round(((p.questionsAnswered || 0) / totalQuestions) * 100)) : 0;
+      return {
+        id: p.id,
+        rank: idx + 1,
+        nickname: p.nickname,
+        avatar: p.avatar,
+        score: p.score,
+        correctCount: p.correctCount,
+        questionsAnswered: p.questionsAnswered || 0,
+        totalQuestions,
+        progressPercent: progress,
+        isFinished: !!p.isFinished,
+        streak: p.streak,
+        scoreHistory: p.scoreHistory || [0],
+        attemptHistory: p.attemptHistory || [0],
+        timeHistory: p.timeHistory || [0]
+      };
+    });
+
+    io.to(room.hostSocketId).emit('host:race_update', {
+      players: racers,
+      finishedCount,
+      totalPlayers,
+      totalQuestions,
+      quizTitle: room.quiz.title,
+      allFinished: (finishedCount >= totalPlayers && totalPlayers > 0),
+      latestEvent
+    });
+  }
+
+  // 4. Student submits answer on phone (self-paced)
+  socket.on('player:submit_answer', ({ questionIndex, selectedIndex, timeTakenMs }) => {
     const room = rooms.get(socket.gamePin);
-    if (!room || room.status !== 'QUESTION_ACTIVE' || room.currentQuestionIndex !== questionIndex) {
-      return;
-    }
+    if (!room || room.status !== 'RACE_ACTIVE') return;
 
     const playerId = socket.playerId;
     const player = room.players.get(playerId);
-    if (!player || room.answersSubmitted.has(playerId)) return; // already answered
+    if (!player || player.isFinished) return;
+    if (player.currentQuestionIndex !== questionIndex) return;
 
     const rawQ = room.quiz.questions[questionIndex];
-    const timeTakenMs = Date.now() - room.questionStartTime;
-    const isCorrect = selectedIndex === rawQ.correctIndex;
+    if (!rawQ) return;
 
+    const timeLimit = room.settings.overrideTimeLimit || rawQ.timeLimit || 20;
+    const timeTaken = (typeof timeTakenMs === 'number' && timeTakenMs > 0)
+      ? timeTakenMs
+      : (Date.now() - (player.questionStartTime || Date.now()));
+
+    const isCorrect = (selectedIndex === rawQ.correctIndex);
     let pointsEarned = 0;
     let streakBonus = 0;
 
     if (isCorrect) {
-      const basePoints = calculateScore(timeTakenMs, room.questionTimeLimit, true);
+      const basePoints = calculateScore(timeTaken, timeLimit, true);
       player.streak += 1;
-      // Streak bonus: 2 => +100, 3 => +200, 4 => +300, 5+ => +500
       if (player.streak >= 2) {
         streakBonus = Math.min(500, (player.streak - 1) * 100);
       }
@@ -466,167 +495,60 @@ io.on('connection', (socket) => {
       player.streak = 0;
     }
 
-    player.lastAnswerResult = {
+    player.questionsAnswered = (player.questionsAnswered || 0) + 1;
+    player.scoreHistory = player.scoreHistory || [0];
+    player.attemptHistory = player.attemptHistory || [0];
+    player.timeHistory = player.timeHistory || [0];
+
+    player.scoreHistory.push(player.score);
+    player.attemptHistory.push(player.correctCount);
+
+    const elapsedSec = parseFloat(Math.min(timeLimit, timeTaken / 1000).toFixed(1));
+    const lastTotalTime = player.timeHistory[player.timeHistory.length - 1] || 0;
+    player.timeHistory.push(parseFloat((lastTotalTime + elapsedSec).toFixed(1)));
+
+    const nextIdx = questionIndex + 1;
+    player.currentQuestionIndex = nextIdx;
+    const isFinished = nextIdx >= room.quiz.questions.length;
+    player.isFinished = isFinished;
+    player.questionStartTime = Date.now();
+
+    // Send answer feedback & next question to this student's phone
+    const nextQ = !isFinished ? room.quiz.questions[nextIdx] : null;
+    socket.emit('player:answer_feedback', {
+      questionIndex,
       selectedIndex,
       isCorrect,
+      correctIndex: rawQ.correctIndex,
       pointsEarned,
       streakBonus,
-      streak: player.streak
-    };
-
-    room.answersSubmitted.set(playerId, {
-      selectedIndex,
-      isCorrect,
-      timeTakenMs,
-      pointsEarned
-    });
-
-    // Notify player that answer was locked in
-    socket.emit('player:answer_recorded', {
-      selectedIndex
-    });
-
-    // Notify host of live count update
-    io.to(room.hostSocketId).emit('host:answer_count_update', {
-      answeredCount: room.answersSubmitted.size,
-      totalPlayers: room.players.size
-    });
-
-    // If all connected players have answered, wrap up question early!
-    if (room.answersSubmitted.size >= room.players.size) {
-      if (room.questionTimer) clearTimeout(room.questionTimer);
-      // Brief 600ms pause so final click feels natural before revealing
-      setTimeout(() => {
-        if (room.status === 'QUESTION_ACTIVE') {
-          endQuestion(room);
-        }
-      }, 600);
-    }
-  });
-
-  // End active question and tally stats
-  function endQuestion(room) {
-    if (room.status !== 'QUESTION_ACTIVE') return;
-    room.status = 'QUESTION_ENDED';
-    if (room.questionTimer) clearTimeout(room.questionTimer);
-
-    const qIdx = room.currentQuestionIndex;
-    const rawQ = room.quiz.questions[qIdx];
-
-    // Compute distribution of answers
-    const optionCounts = [0, 0, 0, 0];
-    let correctCount = 0;
-    let fastestPlayer = null;
-    let fastestTime = Infinity;
-
-    for (const [pId, ans] of room.answersSubmitted.entries()) {
-      if (ans.selectedIndex >= 0 && ans.selectedIndex < 4) {
-        optionCounts[ans.selectedIndex]++;
-      }
-      if (ans.isCorrect) {
-        correctCount++;
-        if (ans.timeTakenMs < fastestTime) {
-          fastestTime = ans.timeTakenMs;
-          const p = room.players.get(pId);
-          if (p) fastestPlayer = p.nickname;
-        }
-      }
-    }
-
-    // Sort players to calculate ranks
-    const sorted = Array.from(room.players.values()).sort((a, b) => b.score - a.score);
-    const ranks = new Map();
-    sorted.forEach((p, idx) => ranks.set(p.id, idx + 1));
-
-    // Send host question summary
-    io.to(room.hostSocketId).emit('host:question_result', {
-      correctIndex: rawQ.correctIndex,
-      explanation: rawQ.explanation || '',
-      optionCounts,
-      answeredCount: room.answersSubmitted.size,
-      totalPlayers: room.players.size,
-      correctCount,
-      accuracyPercent: room.players.size > 0 ? Math.round((correctCount / room.players.size) * 100) : 0,
-      fastestPlayer: fastestPlayer ? `${fastestPlayer} (${(fastestTime / 1000).toFixed(2)}s)` : null
-    });
-
-    // Send individual results to each player
-    for (const [pId, player] of room.players.entries()) {
-      const res = player.lastAnswerResult || {
-        selectedIndex: -1,
-        isCorrect: false,
-        pointsEarned: 0,
-        streakBonus: 0,
-        streak: 0
-      };
-
-      io.to(player.socketId).emit('player:question_result', {
-        ...res,
-        correctIndex: rawQ.correctIndex,
-        currentScore: player.score,
-        currentRank: ranks.get(pId) || 1,
-        totalPlayers: room.players.size
-      });
-    }
-
-    // Record question progression history for all players (for live race graph)
-    for (const [pId, player] of room.players.entries()) {
-      const ans = room.answersSubmitted.get(pId);
-      player.scoreHistory = player.scoreHistory || [0];
-      player.attemptHistory = player.attemptHistory || [0];
-      player.timeHistory = player.timeHistory || [0];
-
-      player.scoreHistory.push(player.score);
-      player.attemptHistory.push(player.correctCount);
-
-      const elapsedSec = ans ? (ans.timeTakenMs / 1000) : (room.questionTimeLimit || 20);
-      const lastTotalTime = player.timeHistory[player.timeHistory.length - 1] || 0;
-      player.timeHistory.push(parseFloat((lastTotalTime + elapsedSec).toFixed(1)));
-    }
-  }
-
-  // 5. Host reveals leaderboard
-  socket.on('host:show_leaderboard', () => {
-    const room = rooms.get(socket.gamePin);
-    if (!room || room.hostSocketId !== socket.id) return;
-
-    room.status = 'LEADERBOARD';
-
-    const sortedPlayers = Array.from(room.players.values())
-      .sort((a, b) => b.score - a.score)
-      .map((p, idx) => ({
-        rank: idx + 1,
-        id: p.id,
-        nickname: p.nickname,
-        avatar: p.avatar,
-        score: p.score,
-        streak: p.streak,
-        scoreHistory: p.scoreHistory || [0],
-        attemptHistory: p.attemptHistory || [0],
-        timeHistory: p.timeHistory || [0]
-      }));
-
-    io.to(room.hostSocketId).emit('host:leaderboard_data', {
-      players: sortedPlayers,
-      currentIndex: room.currentQuestionIndex,
+      streak: player.streak,
+      currentScore: player.score,
+      questionsAnswered: player.questionsAnswered,
       totalQuestions: room.quiz.questions.length,
-      isLastQuestion: room.currentQuestionIndex + 1 >= room.quiz.questions.length
+      isFinished,
+      nextQuestion: nextQ ? {
+        index: nextIdx,
+        totalQuestions: room.quiz.questions.length,
+        question: nextQ.question,
+        options: nextQ.options,
+        timeLimit: room.settings.overrideTimeLimit || nextQ.timeLimit || 20
+      } : null
     });
 
-    io.to(`room_${room.pin}`).emit('game:leaderboard_active');
+    const eventMsg = isCorrect
+      ? `⚡ ${player.nickname} answered Q${questionIndex + 1} correctly! (+${pointsEarned} pts)`
+      : `❌ ${player.nickname} missed Q${questionIndex + 1}`;
+
+    // Send instant live pitch update to host display
+    sendRaceUpdate(room, eventMsg);
   });
 
-  // 6. Host advances to next question
-  socket.on('host:next_question', () => {
+  // 5. Host releases full scores & declares podium
+  socket.on('host:release_scores', () => {
     const room = rooms.get(socket.gamePin);
     if (!room || room.hostSocketId !== socket.id) return;
-
-    const nextIdx = room.currentQuestionIndex + 1;
-    if (nextIdx >= room.quiz.questions.length) {
-      finishTournament(room);
-    } else {
-      startQuestion(room, nextIdx);
-    }
+    finishTournament(room);
   });
 
   // Finish tournament & podium reveal
@@ -634,7 +556,7 @@ io.on('connection', (socket) => {
     room.status = 'FINISHED';
 
     const rankedPlayers = Array.from(room.players.values())
-      .sort((a, b) => b.score - a.score)
+      .sort((a, b) => b.score - a.score || b.correctCount - a.correctCount || (a.timeHistory[a.timeHistory.length - 1] || 0) - (b.timeHistory[b.timeHistory.length - 1] || 0))
       .map((p, idx) => ({
         rank: idx + 1,
         id: p.id,
@@ -642,7 +564,7 @@ io.on('connection', (socket) => {
         avatar: p.avatar,
         score: p.score,
         correctCount: p.correctCount,
-        accuracy: Math.round((p.correctCount / room.quiz.questions.length) * 100),
+        accuracy: room.quiz.questions.length > 0 ? Math.round((p.correctCount / room.quiz.questions.length) * 100) : 0,
         scoreHistory: p.scoreHistory || [0],
         attemptHistory: p.attemptHistory || [0],
         timeHistory: p.timeHistory || [0]
@@ -656,15 +578,20 @@ io.on('connection', (socket) => {
       totalQuestions: room.quiz.questions.length
     });
 
-    // Emit final rank & trophy to players
+    // Emit final rank & scores to student phones
     rankedPlayers.forEach(p => {
-      io.to(room.players.get(p.id).socketId).emit('player:game_finished', {
-        rank: p.rank,
-        score: p.score,
-        totalPlayers: rankedPlayers.length,
-        accuracy: p.accuracy
-      });
+      const playerObj = room.players.get(p.id);
+      if (playerObj) {
+        io.to(playerObj.socketId).emit('player:game_finished', {
+          rank: p.rank,
+          score: p.score,
+          accuracy: p.accuracy,
+          totalPlayers: rankedPlayers.length,
+          podium: rankedPlayers.slice(0, 3)
+        });
+      }
     });
+    console.log(`Tournament [${room.pin}] finalized by host. Winner: ${rankedPlayers[0]?.nickname || 'None'}`);
   }
 
   // Host kicks a player from lobby
