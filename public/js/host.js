@@ -123,6 +123,8 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 // Setup IP detection & selector
 async function initNetworkIPs() {
+  const isCloudHost = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+
   try {
     const res = await fetch('/api/network-ips');
     const data = await res.json();
@@ -131,17 +133,23 @@ async function initNetworkIPs() {
 
     networkIpSelect.innerHTML = '';
 
+    if (isCloudHost) {
+      const cloudOpt = document.createElement('option');
+      cloudOpt.value = window.location.hostname;
+      cloudOpt.textContent = `🌐 ${window.location.hostname} (Live Cloud)`;
+      cloudOpt.selected = true;
+      networkIpSelect.appendChild(cloudOpt);
+      selectedIP = window.location.hostname;
+    }
+
     // Prefer Wi-Fi or LAN IP
     let preferred = networkIPs.find(n => n.isPreferred) || networkIPs[0];
-    if (!preferred && window.location.hostname !== 'localhost') {
-      preferred = { ip: window.location.hostname, interface: 'Current' };
-    }
 
     networkIPs.forEach(n => {
       const opt = document.createElement('option');
       opt.value = n.ip;
       opt.textContent = `📶 ${n.interface} (${n.ip})`;
-      if (preferred && preferred.ip === n.ip) opt.selected = true;
+      if (!isCloudHost && preferred && preferred.ip === n.ip) opt.selected = true;
       networkIpSelect.appendChild(opt);
     });
 
@@ -151,11 +159,13 @@ async function initNetworkIPs() {
     localOpt.textContent = `💻 Localhost (This PC)`;
     networkIpSelect.appendChild(localOpt);
 
-    if (preferred) {
-      selectedIP = preferred.ip;
-    } else {
-      selectedIP = 'localhost';
-      localOpt.selected = true;
+    if (!isCloudHost) {
+      if (preferred) {
+        selectedIP = preferred.ip;
+      } else {
+        selectedIP = 'localhost';
+        localOpt.selected = true;
+      }
     }
 
     networkIpSelect.addEventListener('change', () => {
@@ -163,12 +173,14 @@ async function initNetworkIPs() {
       updateQRCode();
     });
   } catch (err) {
-    console.warn('Network IP fetch error:', err);
     selectedIP = window.location.hostname || 'localhost';
   }
 }
 
 function getStudentJoinUrl() {
+  if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return `${window.location.origin}/player.html?pin=${currentGamePin}`;
+  }
   const portPart = (selectedPort && selectedPort !== '80') ? `:${selectedPort}` : '';
   const protocol = window.location.protocol;
   return `${protocol}//${selectedIP}${portPart}/player.html?pin=${currentGamePin}`;
