@@ -600,7 +600,7 @@ downloadResultsBtn.addEventListener('click', () => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `WayGround_Tournament_${currentGamePin}.csv`;
+  a.download = `APT_Arena_Tournament_${currentGamePin}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 });

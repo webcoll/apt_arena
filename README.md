@@ -1,6 +1,6 @@
-# ⚡ WayGround Live MCQ Tournament Platform
+# ⚡ APT Arena - Live MCQ Tournament Platform
 
-A live interactive quiz competition platform inspired by [Wayground](https://wayground.com) and Kahoot/Quizizz. Built for live student participation, big-screen projector displays, mobile QR code scanning, and real-time competitive leaderboards.
+A live interactive quiz competition platform inspired by Wayground and Kahoot/Quizizz. Built for live student participation, big-screen projector displays, mobile QR code scanning, and real-time competitive leaderboards.
 
 ---
 

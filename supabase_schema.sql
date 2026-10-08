@@ -1,5 +1,5 @@
 -- ==============================================================================
--- ⚡ WayGround Supabase Realtime & Database Setup Schema
+-- ⚡ APT Arena Supabase Realtime & Database Setup Schema
 -- Run this in your Supabase SQL Editor (https://supabase.com/dashboard/project/_/sql)
 -- ==============================================================================
 
