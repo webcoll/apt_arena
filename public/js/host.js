@@ -62,8 +62,15 @@ const resultExplanationText = document.getElementById('result-explanation-text')
 
 // Leaderboard elements
 const leaderboardList = document.getElementById('leaderboard-list');
+const leaderboardGraphView = document.getElementById('leaderboard-graph-view');
+const lbTabCardsBtn = document.getElementById('lb-tab-cards-btn');
+const lbTabGraphBtn = document.getElementById('lb-tab-graph-btn');
 const nextQuestionBtn = document.getElementById('next-question-btn');
 const nextQuestionBtnText = document.getElementById('next-question-btn-text');
+
+let currentLeaderboardPlayers = [];
+let raceChartInstance = null;
+let podiumChartInstance = null;
 
 // Podium elements
 const downloadResultsBtn = document.getElementById('download-results-btn');
@@ -78,6 +85,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   initHostEvents();
   initSoundToggle();
   initFullscreen();
+  initLeaderboardTabs();
 
   // Create game session
   if (window.supabaseManager && window.supabaseManager.isConfigured()) {
@@ -339,7 +347,12 @@ function initHostEvents() {
   socket.on('host:leaderboard_data', ({ players, currentIndex, totalQuestions, isLastQuestion }) => {
     showScreen(leaderboardScreen);
     window.sounds.playLeaderboardFanfare();
+    currentLeaderboardPlayers = players;
     renderLeaderboard(players);
+
+    if (leaderboardGraphView && !leaderboardGraphView.classList.contains('hidden')) {
+      renderRaceChart(players, 'race-chart-canvas');
+    }
 
     if (isLastQuestion) {
       nextQuestionBtnText.textContent = 'VIEW GRAND PODIUM 🏆';
@@ -377,6 +390,11 @@ function initHostEvents() {
 
     // Render full scoreboard
     renderFullStandings(data.allPlayers);
+
+    // Render tournament battle timeline graph (Who was ahead of whom)
+    setTimeout(() => {
+      renderRaceChart(data.allPlayers, 'podium-race-chart');
+    }, 400);
   });
 }
 
@@ -486,6 +504,173 @@ function renderLeaderboard(players) {
     `;
     leaderboardList.appendChild(row);
   });
+}
+
+// Leaderboard Tabs (Ranks vs Race Graph)
+function initLeaderboardTabs() {
+  if (!lbTabCardsBtn || !lbTabGraphBtn) return;
+
+  lbTabCardsBtn.addEventListener('click', () => {
+    lbTabCardsBtn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition bg-violet-600 text-white shadow';
+    lbTabGraphBtn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition text-slate-300 hover:text-white';
+    if (leaderboardList) leaderboardList.classList.remove('hidden');
+    if (leaderboardGraphView) leaderboardGraphView.classList.add('hidden');
+  });
+
+  lbTabGraphBtn.addEventListener('click', () => {
+    lbTabGraphBtn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition bg-violet-600 text-white shadow';
+    lbTabCardsBtn.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition text-slate-300 hover:text-white';
+    if (leaderboardList) leaderboardList.classList.add('hidden');
+    if (leaderboardGraphView) leaderboardGraphView.classList.remove('hidden');
+    renderRaceChart(currentLeaderboardPlayers, 'race-chart-canvas');
+  });
+}
+
+// Render Live Race Graph (Who is Ahead of Whom)
+function renderRaceChart(players, canvasId) {
+  if (typeof Chart === 'undefined') return;
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+
+  if (!players || players.length === 0) return;
+
+  // Track top 8 players for visual clarity
+  const topPlayers = players.slice(0, 8);
+
+  const vibrantColors = [
+    '#f59e0b', // Amber/Gold (Rank 1)
+    '#38bdf8', // Sky Blue (Rank 2)
+    '#ec4899', // Pink (Rank 3)
+    '#10b981', // Emerald
+    '#a855f7', // Purple
+    '#f97316', // Orange
+    '#06b6d4', // Cyan
+    '#e11d48'  // Rose
+  ];
+
+  let maxSteps = 1;
+  topPlayers.forEach(p => {
+    if (p.scoreHistory && p.scoreHistory.length > maxSteps) {
+      maxSteps = p.scoreHistory.length;
+    }
+  });
+
+  const labels = Array.from({ length: maxSteps }, (_, i) => i === 0 ? 'Start' : `Q${i}`);
+
+  const datasets = topPlayers.map((p, idx) => {
+    const color = vibrantColors[idx % vibrantColors.length];
+    const data = p.scoreHistory && p.scoreHistory.length > 0
+      ? p.scoreHistory
+      : [0, p.score || 0];
+
+    return {
+      label: `${p.avatar || '🚀'} ${p.nickname}`,
+      data: data,
+      borderColor: color,
+      backgroundColor: color,
+      borderWidth: 3,
+      tension: 0.35,
+      pointRadius: 5,
+      pointHoverRadius: 8,
+      pointBackgroundColor: color,
+      pointBorderColor: '#0f172a',
+      pointBorderWidth: 2,
+      fill: false
+    };
+  });
+
+  if (canvasId === 'race-chart-canvas' && raceChartInstance) {
+    raceChartInstance.destroy();
+    raceChartInstance = null;
+  } else if (canvasId === 'podium-race-chart' && podiumChartInstance) {
+    podiumChartInstance.destroy();
+    podiumChartInstance = null;
+  }
+
+  const ctx = canvas.getContext('2d');
+  const newChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: datasets
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false
+      },
+      plugins: {
+        legend: {
+          position: 'top',
+          labels: {
+            color: '#e2e8f0',
+            font: { size: 12, weight: 'bold' },
+            boxWidth: 14,
+            usePointStyle: true,
+            pointStyle: 'circle',
+            padding: 12
+          }
+        },
+        tooltip: {
+          backgroundColor: 'rgba(15, 23, 42, 0.95)',
+          titleColor: '#f8fafc',
+          bodyColor: '#cbd5e1',
+          borderColor: 'rgba(255, 255, 255, 0.1)',
+          borderWidth: 1,
+          padding: 10,
+          callbacks: {
+            label: function(context) {
+              return ` ${context.dataset.label}: ${context.parsed.y.toLocaleString()} pts`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: {
+            color: 'rgba(255, 255, 255, 0.06)'
+          },
+          ticks: {
+            color: '#94a3b8',
+            font: { weight: 'bold' }
+          },
+          title: {
+            display: true,
+            text: 'Timeline / Questions Attempted',
+            color: '#64748b',
+            font: { size: 11, weight: '600' }
+          }
+        },
+        y: {
+          beginAtZero: true,
+          grid: {
+            color: 'rgba(255, 255, 255, 0.06)'
+          },
+          ticks: {
+            color: '#94a3b8',
+            font: { weight: 'bold' },
+            callback: function(val) {
+              return val >= 1000 ? (val / 1000) + 'k' : val;
+            }
+          },
+          title: {
+            display: true,
+            text: 'Points',
+            color: '#64748b',
+            font: { size: 11, weight: '600' }
+          }
+        }
+      }
+    }
+  });
+
+  if (canvasId === 'race-chart-canvas') {
+    raceChartInstance = newChart;
+  } else if (canvasId === 'podium-race-chart') {
+    podiumChartInstance = newChart;
+  }
 }
 
 // Render Full Standings Table

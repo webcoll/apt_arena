@@ -252,7 +252,7 @@ function initSocketEvents() {
     resultCurrentRank.textContent = `#${data.currentRank} / ${data.totalPlayers}`;
   });
 
-  // Tournament finished
+  // Tournament finished (Podium screen - music is ONLY played on main display)
   socket.on('player:game_finished', (data) => {
     showScreen(finishedScreen);
     finalScoreDisplay.textContent = data.score.toLocaleString();
@@ -261,7 +261,6 @@ function initSocketEvents() {
     if (data.rank === 1) {
       finalTrophyIcon.textContent = '👑';
       finalRankTagline.textContent = '🏆 1st Place Champion!';
-      window.sounds.playVictory();
     } else if (data.rank === 2) {
       finalTrophyIcon.textContent = '🥈';
       finalRankTagline.textContent = '2nd Place Runner-Up!';
@@ -311,3 +310,13 @@ function showScreen(screenEl) {
   });
   screenEl.classList.remove('hidden');
 }
+
+// Reset view for student to join another quiz
+window.giveAnotherQuiz = function() {
+  currentQuestionIndex = -1;
+  currentScore = 0;
+  inputPin.value = '';
+  showScreen(joinScreen);
+  topPlayerPill.classList.add('hidden');
+  inputPin.focus();
+};

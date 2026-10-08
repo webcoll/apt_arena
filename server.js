@@ -329,6 +329,9 @@ io.on('connection', (socket) => {
       score: 0,
       streak: 0,
       correctCount: 0,
+      scoreHistory: [0],
+      attemptHistory: [0],
+      timeHistory: [0],
       lastAnswerResult: null,
       joinedAt: Date.now()
     };
@@ -565,6 +568,21 @@ io.on('connection', (socket) => {
         totalPlayers: room.players.size
       });
     }
+
+    // Record question progression history for all players (for live race graph)
+    for (const [pId, player] of room.players.entries()) {
+      const ans = room.answersSubmitted.get(pId);
+      player.scoreHistory = player.scoreHistory || [0];
+      player.attemptHistory = player.attemptHistory || [0];
+      player.timeHistory = player.timeHistory || [0];
+
+      player.scoreHistory.push(player.score);
+      player.attemptHistory.push(player.correctCount);
+
+      const elapsedSec = ans ? (ans.timeTakenMs / 1000) : (room.questionTimeLimit || 20);
+      const lastTotalTime = player.timeHistory[player.timeHistory.length - 1] || 0;
+      player.timeHistory.push(parseFloat((lastTotalTime + elapsedSec).toFixed(1)));
+    }
   }
 
   // 5. Host reveals leaderboard
@@ -582,7 +600,10 @@ io.on('connection', (socket) => {
         nickname: p.nickname,
         avatar: p.avatar,
         score: p.score,
-        streak: p.streak
+        streak: p.streak,
+        scoreHistory: p.scoreHistory || [0],
+        attemptHistory: p.attemptHistory || [0],
+        timeHistory: p.timeHistory || [0]
       }));
 
     io.to(room.hostSocketId).emit('host:leaderboard_data', {
@@ -621,7 +642,10 @@ io.on('connection', (socket) => {
         avatar: p.avatar,
         score: p.score,
         correctCount: p.correctCount,
-        accuracy: Math.round((p.correctCount / room.quiz.questions.length) * 100)
+        accuracy: Math.round((p.correctCount / room.quiz.questions.length) * 100),
+        scoreHistory: p.scoreHistory || [0],
+        attemptHistory: p.attemptHistory || [0],
+        timeHistory: p.timeHistory || [0]
       }));
 
     // Emit finale to host display
