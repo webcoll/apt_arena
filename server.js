@@ -124,6 +124,120 @@ app.get('/api/qrcode', async (req, res) => {
   }
 });
 
+// Helper: Parse Google Form HTML
+function parseGoogleFormData(html) {
+  // Regex to extract Google Forms public data block
+  const match = html.match(/FB_PUBLIC_LOAD_DATA_\s*=\s*(\[.+?\]);\s*<\/script>/s) || 
+                html.match(/var\s+FB_PUBLIC_LOAD_DATA_\s*=\s*(\[.+?\]);/s);
+  if (!match) return null;
+
+  try {
+    const data = JSON.parse(match[1]);
+    const formTitle = (data[1] && data[1][8]) || (data[1] && data[1][0]) || 'Imported Google Form Quiz';
+    const formDesc = (data[1] && data[1][1] && data[1][0]) || '';
+    const rawItems = (data[1] && data[1][1]) || [];
+    const questions = [];
+
+    rawItems.forEach((item, idx) => {
+      const qTitle = item[1];
+      if (!qTitle) return;
+
+      const entry = item[4] && item[4][0];
+      if (entry && Array.isArray(entry[1]) && entry[1].length >= 2) {
+        // Multiple choice options
+        const opts = entry[1].map(o => {
+          if (Array.isArray(o)) return o[0];
+          return o;
+        }).filter(Boolean);
+
+        // Ensure 2 to 4 options
+        if (opts.length >= 2) {
+          questions.push({
+            id: 'q_gf_' + (idx + 1) + '_' + Date.now().toString(36).substr(4),
+            question: qTitle.trim(),
+            options: opts.slice(0, 4),
+            correctIndex: 0,
+            timeLimit: 20,
+            points: 1000,
+            explanation: item[2] || ''
+          });
+        }
+      }
+    });
+
+    return {
+      title: formTitle,
+      description: formDesc,
+      questions
+    };
+  } catch (err) {
+    console.error('Error parsing Google Form JSON:', err);
+    return null;
+  }
+}
+
+// Endpoint: Import questions directly from a Google Form URL or HTML
+app.post('/api/import-google-form', async (req, res) => {
+  let { url, rawHtml } = req.body;
+
+  if (rawHtml) {
+    const result = parseGoogleFormData(rawHtml);
+    if (!result || result.questions.length === 0) {
+      return res.status(400).json({ error: 'Could not find any multiple choice questions in the provided HTML.' });
+    }
+    return res.json({ success: true, ...result });
+  }
+
+  if (!url || typeof url !== 'string') {
+    return res.status(400).json({ error: 'Valid Google Form URL required.' });
+  }
+
+  // Normalize Google Form URL
+  let targetUrl = url.trim();
+  if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+    targetUrl = 'https://' + targetUrl;
+  }
+
+  if (targetUrl.includes('docs.google.com/forms')) {
+    // If edit link, convert to viewform
+    targetUrl = targetUrl.replace(/\/edit(\?.*)?$/, '/viewform');
+    if (!targetUrl.includes('/viewform')) {
+      targetUrl = targetUrl.replace(/\/?$/, '/viewform');
+    }
+  }
+
+  try {
+    const response = await fetch(targetUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+      }
+    });
+
+    if (!response.ok) {
+      return res.status(400).json({ 
+        error: `Failed to fetch Google Form (Status ${response.status}). Ensure the form is set to "Public" or "Anyone with the link".` 
+      });
+    }
+
+    const html = await response.text();
+    const result = parseGoogleFormData(html);
+
+    if (!result || !Array.isArray(result.questions) || result.questions.length === 0) {
+      return res.status(400).json({ 
+        error: 'No multiple-choice questions found. Ensure the form has multiple-choice questions and is publicly accessible without login.' 
+      });
+    }
+
+    res.json({ success: true, ...result });
+  } catch (err) {
+    console.error('Google Form fetch error:', err);
+    res.status(500).json({ 
+      error: 'Could not connect to Google Form. Check the link and ensure it is public.' 
+    });
+  }
+});
+
 // --- IN-MEMORY ROOM MANAGER ---
 const rooms = new Map();
 
