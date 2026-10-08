@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quiz Studio - WayGround Live</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="bg-mesh min-h-screen text-slate-100 flex flex-col justify-between">
+
+  <!-- TOP HEADER -->
+  <header class="w-full glass-panel border-b border-white/10 px-6 py-4 flex items-center justify-between sticky top-0 z-30">
+    <div class="flex items-center space-x-3">
+      <a href="index.html" class="flex items-center space-x-2.5 text-white hover:opacity-80 transition">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-violet-600 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/30">
+          <i class="fa-solid fa-bolt text-lg text-white"></i>
+        </div>
+        <span class="font-extrabold text-2xl tracking-tight bg-gradient-to-r from-violet-300 via-fuchsia-200 to-amber-200 bg-clip-text text-transparent">
+          WayGround Studio
+        </span>
+      </a>
+    </div>
+
+    <div class="flex items-center space-x-3">
+      <button id="btn-import-json" class="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-xs font-bold text-slate-200 flex items-center space-x-1.5 transition">
+        <i class="fa-solid fa-file-import"></i>
+        <span>Import JSON</span>
+      </button>
+
+      <button id="btn-create-quiz" class="px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-pink-600 text-white font-bold text-xs shadow-md shadow-violet-600/30 hover:brightness-110 active:scale-95 transition flex items-center space-x-1.5">
+        <i class="fa-solid fa-plus"></i>
+        <span>Create New Quiz</span>
+      </button>
+
+      <a href="index.html" class="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-400 hover:text-white transition">
+        <i class="fa-solid fa-house"></i>
+      </a>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="flex-1 max-w-6xl w-full mx-auto p-4 md:p-8">
+
+    <!-- Quizzes Library View -->
+    <section id="library-view" class="w-full">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h2 class="text-3xl font-black text-white">Your Quiz Library</h2>
+          <p class="text-slate-400 text-sm mt-1">Select a quiz to launch live or edit questions</p>
+        </div>
+      </div>
+
+      <div id="quizzes-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Rendered by JS -->
+      </div>
+    </section>
+
+    <!-- Quiz Editor Modal / View -->
+    <section id="editor-view" class="hidden w-full max-w-4xl mx-auto glass-panel rounded-3xl p-6 md:p-8 border border-white/10 animate-fade-in">
+      <div class="flex items-center justify-between pb-6 border-b border-white/10 mb-6">
+        <div>
+          <h3 id="editor-title" class="text-2xl font-black text-white">Create New Quiz</h3>
+          <p class="text-xs text-slate-400">Configure quiz details and questions</p>
+        </div>
+        <button id="btn-cancel-edit" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold text-slate-300">
+          Cancel
+        </button>
+      </div>
+
+      <form id="quiz-form" class="space-y-6">
+        <!-- Metadata -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="md:col-span-2">
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Quiz Title</label>
+            <input type="text" id="edit-quiz-title" required placeholder="e.g. Modern Web Development Tournament" class="w-full bg-slate-900/80 border border-white/15 rounded-xl px-4 py-2.5 text-white font-bold text-base focus:outline-none focus:border-violet-500">
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Category & Icon</label>
+            <div class="flex space-x-2">
+              <input type="text" id="edit-quiz-icon" maxlength="4" value="⚡" class="w-14 bg-slate-900/80 border border-white/15 rounded-xl px-2 py-2.5 text-center text-xl focus:outline-none focus:border-violet-500">
+              <input type="text" id="edit-quiz-category" placeholder="Tech / Science" value="General" class="flex-1 bg-slate-900/80 border border-white/15 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-violet-500">
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Description</label>
+          <input type="text" id="edit-quiz-desc" placeholder="Brief description of this live challenge..." class="w-full bg-slate-900/80 border border-white/15 rounded-xl px-4 py-2 text-slate-300 text-sm focus:outline-none focus:border-violet-500">
+        </div>
+
+        <!-- Questions Section -->
+        <div class="pt-4 border-t border-white/10">
+          <div class="flex items-center justify-between mb-4">
+            <h4 class="text-lg font-bold text-white flex items-center space-x-2">
+              <span>Questions</span>
+              <span id="editor-q-count" class="px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 text-xs font-bold">0</span>
+            </h4>
+            <button type="button" id="btn-add-question" class="px-3.5 py-1.5 rounded-xl bg-violet-600/40 hover:bg-violet-600 border border-violet-500/40 text-violet-200 text-xs font-bold transition flex items-center space-x-1.5">
+              <i class="fa-solid fa-plus"></i>
+              <span>Add Question</span>
+            </button>
+          </div>
+
+          <div id="questions-container" class="space-y-4">
+            <!-- Questions rendered here -->
+          </div>
+        </div>
+
+        <!-- Save Button -->
+        <div class="pt-6 border-t border-white/10 flex items-center justify-end space-x-4">
+          <button type="button" id="btn-cancel-edit-2" class="px-6 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 font-bold text-sm">
+            Cancel
+          </button>
+          <button type="submit" class="px-8 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-pink-600 text-white font-extrabold text-sm shadow-lg shadow-violet-600/30 hover:brightness-110 transition flex items-center space-x-2">
+            <i class="fa-solid fa-floppy-disk"></i>
+            <span>Save Quiz</span>
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Import JSON Modal -->
+    <div id="import-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+      <div class="glass-panel w-full max-w-lg rounded-3xl p-6 border border-white/15">
+        <h3 class="text-xl font-bold text-white mb-2">Import Quiz JSON</h3>
+        <p class="text-xs text-slate-400 mb-4">Paste valid Quiz JSON formatted structure below:</p>
+        <textarea id="import-json-text" rows="10" placeholder='{"title": "My Quiz", "questions": [...]}' class="w-full bg-slate-900 border border-white/20 rounded-xl p-3 text-xs font-mono text-emerald-300 focus:outline-none focus:border-violet-500"></textarea>
+        
+        <div class="flex items-center justify-end space-x-3 mt-4">
+          <button id="btn-close-import" class="px-4 py-2 rounded-xl bg-white/10 text-xs font-bold text-slate-300">Cancel</button>
+          <button id="btn-submit-import" class="px-5 py-2 rounded-xl bg-violet-600 text-white text-xs font-bold hover:bg-violet-500">Import</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="w-full py-4 text-center text-xs text-slate-500 border-t border-white/5">
+    WayGround Studio &bull; Quiz Authoring & Tournament Management
+  </footer>
+
+  <!-- Supabase CDN & Config -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase-config.js"></script>
+
+  <script>
+    let quizzes = [];
+    let currentEditingQuiz = null;
+
+    const libraryView = document.getElementById('library-view');
+    const editorView = document.getElementById('editor-view');
+    const quizzesGrid = document.getElementById('quizzes-grid');
+
+    const editQuizTitle = document.getElementById('edit-quiz-title');
+    const editQuizIcon = document.getElementById('edit-quiz-icon');
+    const editQuizCategory = document.getElementById('edit-quiz-category');
+    const editQuizDesc = document.getElementById('edit-quiz-desc');
+    const questionsContainer = document.getElementById('questions-container');
+    const editorQCount = document.getElementById('editor-q-count');
+
+    const btnCreateQuiz = document.getElementById('btn-create-quiz');
+    const btnCancelEdit = document.getElementById('btn-cancel-edit');
+    const btnCancelEdit2 = document.getElementById('btn-cancel-edit-2');
+    const btnAddQuestion = document.getElementById('btn-add-question');
+    const quizForm = document.getElementById('quiz-form');
+
+    const btnImportJson = document.getElementById('btn-import-json');
+    const importModal = document.getElementById('import-modal');
+    const btnCloseImport = document.getElementById('btn-close-import');
+    const btnSubmitImport = document.getElementById('btn-submit-import');
+    const importJsonText = document.getElementById('import-json-text');
+
+    // Default static fallback quizzes if no server or DB
+    const FALLBACK_QUIZZES = [
+      {
+        id: "quiz_tech_stars",
+        title: "⚡ Tech & Coding Superstars",
+        description: "Test your knowledge of programming, web tech, AI, and computing history!",
+        category: "Technology",
+        icon: "💻",
+        questions: [
+          { id: "q1", question: "Which language structures modern web pages?", options: ["Python", "HTML", "C++", "Java"], correctIndex: 1, timeLimit: 15, points: 1000, explanation: "HTML structures web docs." },
+          { id: "q2", question: "What does API stand for?", options: ["Automated Program Interface", "Application Programming Interface", "Applied Protocol Integration", "Advanced Processing Instruction"], correctIndex: 1, timeLimit: 20, points: 1000, explanation: "Application Programming Interface." },
+          { id: "q3", question: "Which company created JavaScript in 1995?", options: ["Microsoft", "Netscape", "Sun Microsystems", "Apple"], correctIndex: 1, timeLimit: 20, points: 1000, explanation: "Netscape." }
+        ]
+      },
+      {
+        id: "quiz_science_space",
+        title: "🚀 Science & Cosmic Wonders",
+        description: "Cosmic mysteries, astronomy, and physics!",
+        category: "Science",
+        icon: "🪐",
+        questions: [
+          { id: "qs1", question: "Closest planet to the Sun?", options: ["Venus", "Mars", "Mercury", "Earth"], correctIndex: 2, timeLimit: 15, points: 1000, explanation: "Mercury." },
+          { id: "qs2", question: "Speed of light in vacuum?", options: ["300,000 km/s", "150,000 km/s", "30,000 km/s", "1,000,000 km/s"], correctIndex: 0, timeLimit: 20, points: 1000, explanation: "~300,000 km/s." }
+        ]
+      }
+    ];
+
+    window.addEventListener('DOMContentLoaded', loadQuizzes);
+
+    async function loadQuizzes() {
+      try {
+        const res = await fetch('/api/quizzes');
+        if (res.ok) {
+          quizzes = await res.json();
+          renderQuizzesGrid();
+          return;
+        }
+      } catch (err) {}
+
+      // Try Supabase table if configured
+      if (window.supabaseManager && window.supabaseManager.isConfigured()) {
+        try {
+          const { data, error } = await window.supabaseManager.client.from('quizzes').select('*');
+          if (data && data.length > 0) {
+            quizzes = data;
+            renderQuizzesGrid();
+            return;
+          }
+        } catch (e) {}
+      }
+
+      // Check localStorage or fallback
+      const savedLocal = localStorage.getItem('WAYGROUND_LOCAL_QUIZZES');
+      if (savedLocal) {
+        try {
+          quizzes = JSON.parse(savedLocal);
+          renderQuizzesGrid();
+          return;
+        } catch (e) {}
+      }
+
+      quizzes = FALLBACK_QUIZZES;
+      renderQuizzesGrid();
+    }
+
+    function renderQuizzesGrid() {
+      quizzesGrid.innerHTML = '';
+      quizzes.forEach(q => {
+        const card = document.createElement('div');
+        card.className = 'glass-card rounded-3xl p-6 flex flex-col justify-between border border-white/10 hover:border-violet-500/50 hover:shadow-2xl transition duration-300';
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center justify-between mb-4">
+              <span class="text-4xl p-2 rounded-2xl bg-white/5">${q.icon || '🎯'}</span>
+              <span class="text-xs px-2.5 py-1 rounded-full bg-violet-500/20 text-violet-300 font-bold uppercase tracking-wider">${q.category || 'General'}</span>
+            </div>
+            <h3 class="text-xl font-black text-white mb-1.5 leading-snug">${escapeHtml(q.title)}</h3>
+            <p class="text-slate-400 text-xs line-clamp-2 mb-4">${escapeHtml(q.description || 'No description.')}</p>
+          </div>
+
+          <div>
+            <div class="flex items-center space-x-3 text-xs text-slate-400 py-3 border-t border-white/10 mb-4">
+              <span><i class="fa-solid fa-list-check text-violet-400 mr-1"></i> ${q.questions.length} Questions</span>
+              <span><i class="fa-solid fa-clock text-amber-400 mr-1"></i> ${q.questions[0]?.timeLimit || 20}s each</span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <a href="host.html?quizId=${q.id}" class="py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-pink-600 text-white font-extrabold text-xs text-center shadow-md shadow-violet-600/30 hover:brightness-110 transition flex items-center justify-center space-x-1.5">
+                <i class="fa-solid fa-play text-[10px]"></i>
+                <span>Host Live</span>
+              </a>
+              <div class="flex space-x-1">
+                <button onclick="editQuiz('${q.id}')" class="flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-200 text-xs font-bold transition">
+                  Edit
+                </button>
+                <button onclick="deleteQuiz('${q.id}')" class="px-3 py-2.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 text-xs font-bold transition" title="Delete">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+        quizzesGrid.appendChild(card);
+      });
+    }
+
+    // New Quiz
+    btnCreateQuiz.addEventListener('click', () => {
+      currentEditingQuiz = {
+        id: 'quiz_' + Date.now(),
+        title: '',
+        icon: '⚡',
+        category: 'General',
+        description: '',
+        questions: []
+      };
+      openEditor();
+      addQuestionBlock(); // Add one initial blank question
+    });
+
+    function editQuiz(id) {
+      const q = quizzes.find(x => x.id === id);
+      if (!q) return;
+      currentEditingQuiz = JSON.parse(JSON.stringify(q));
+      openEditor();
+    }
+
+    async function deleteQuiz(id) {
+      if (!confirm('Are you sure you want to delete this quiz?')) return;
+      try {
+        await fetch(`/api/quizzes/${id}`, { method: 'DELETE' });
+        loadQuizzes();
+      } catch (err) {
+        alert('Failed to delete quiz');
+      }
+    }
+
+    function openEditor() {
+      libraryView.classList.add('hidden');
+      editorView.classList.remove('hidden');
+
+      editQuizTitle.value = currentEditingQuiz.title || '';
+      editQuizIcon.value = currentEditingQuiz.icon || '⚡';
+      editQuizCategory.value = currentEditingQuiz.category || 'General';
+      editQuizDesc.value = currentEditingQuiz.description || '';
+
+      renderQuestionBlocks();
+    }
+
+    function closeEditor() {
+      editorView.classList.add('hidden');
+      libraryView.classList.remove('hidden');
+      currentEditingQuiz = null;
+    }
+
+    btnCancelEdit.addEventListener('click', closeEditor);
+    btnCancelEdit2.addEventListener('click', closeEditor);
+
+    function renderQuestionBlocks() {
+      questionsContainer.innerHTML = '';
+      editorQCount.textContent = currentEditingQuiz.questions.length;
+
+      currentEditingQuiz.questions.forEach((q, qIdx) => {
+        const block = createQuestionElement(q, qIdx);
+        questionsContainer.appendChild(block);
+      });
+    }
+
+    function addQuestionBlock() {
+      currentEditingQuiz.questions.push({
+        id: 'q_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+        question: '',
+        options: ['', '', '', ''],
+        correctIndex: 0,
+        timeLimit: 20,
+        points: 1000,
+        explanation: ''
+      });
+      renderQuestionBlocks();
+    }
+
+    btnAddQuestion.addEventListener('click', addQuestionBlock);
+
+    function createQuestionElement(q, qIdx) {
+      const card = document.createElement('div');
+      card.className = 'glass-card rounded-2xl p-5 border border-white/10 space-y-4';
+      card.dataset.index = qIdx;
+
+      card.innerHTML = `
+        <div class="flex items-center justify-between pb-2 border-b border-white/5">
+          <div class="flex items-center space-x-2">
+            <span class="w-6 h-6 rounded-lg bg-violet-600 text-white font-black text-xs flex items-center justify-center">${qIdx + 1}</span>
+            <span class="text-xs font-bold text-slate-400">Question ${qIdx + 1}</span>
+          </div>
+          <div class="flex items-center space-x-3">
+            <select class="q-timelimit bg-slate-900 text-xs text-slate-300 border border-white/15 rounded-lg px-2.5 py-1">
+              <option value="10" ${q.timeLimit == 10 ? 'selected' : ''}>10s</option>
+              <option value="15" ${q.timeLimit == 15 ? 'selected' : ''}>15s</option>
+              <option value="20" ${q.timeLimit == 20 ? 'selected' : ''}>20s</option>
+              <option value="30" ${q.timeLimit == 30 ? 'selected' : ''}>30s</option>
+              <option value="60" ${q.timeLimit == 60 ? 'selected' : ''}>60s</option>
+            </select>
+            <button type="button" class="text-red-400 hover:text-red-300 text-xs p-1" onclick="removeQuestion(${qIdx})">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <input type="text" class="q-text w-full bg-slate-900/90 border border-white/15 rounded-xl px-3.5 py-2.5 text-white font-bold text-sm focus:outline-none focus:border-violet-500" placeholder="Type your question here..." value="${escapeHtml(q.question)}" required>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          ${[0, 1, 2, 3].map(optIdx => `
+            <div class="flex items-center space-x-2 bg-slate-900/60 p-2.5 rounded-xl border border-white/10">
+              <input type="radio" name="correct_${qIdx}" value="${optIdx}" ${q.correctIndex === optIdx ? 'checked' : ''} class="w-4 h-4 text-emerald-500 focus:ring-emerald-500 cursor-pointer" title="Mark as Correct Answer">
+              <input type="text" class="q-opt-${optIdx} flex-1 bg-transparent text-xs text-white focus:outline-none placeholder:text-slate-500" placeholder="Option ${String.fromCharCode(65 + optIdx)}" value="${escapeHtml(q.options[optIdx] || '')}" required>
+            </div>
+          `).join('')}
+        </div>
+
+        <div>
+          <input type="text" class="q-explanation w-full bg-slate-900/40 border border-white/10 rounded-xl px-3 py-1.5 text-slate-300 text-xs focus:outline-none" placeholder="Explanation (revealed after timer ends, optional)" value="${escapeHtml(q.explanation || '')}">
+        </div>
+      `;
+      return card;
+    }
+
+    window.removeQuestion = function(idx) {
+      currentEditingQuiz.questions.splice(idx, 1);
+      renderQuestionBlocks();
+    };
+
+    // Save Quiz Submit
+    quizForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      // Read values from form into currentEditingQuiz
+      currentEditingQuiz.title = editQuizTitle.value.trim();
+      currentEditingQuiz.icon = editQuizIcon.value.trim() || '⚡';
+      currentEditingQuiz.category = editQuizCategory.value.trim() || 'General';
+      currentEditingQuiz.description = editQuizDesc.value.trim();
+
+      const blocks = questionsContainer.children;
+      if (blocks.length === 0) {
+        alert('Please add at least 1 question.');
+        return;
+      }
+
+      const updatedQuestions = [];
+      for (let i = 0; i < blocks.length; i++) {
+        const b = blocks[i];
+        const qText = b.querySelector('.q-text').value.trim();
+        const timeLimit = parseInt(b.querySelector('.q-timelimit').value, 10);
+        const explanation = b.querySelector('.q-explanation').value.trim();
+
+        const opts = [
+          b.querySelector('.q-opt-0').value.trim(),
+          b.querySelector('.q-opt-1').value.trim(),
+          b.querySelector('.q-opt-2').value.trim(),
+          b.querySelector('.q-opt-3').value.trim()
+        ];
+
+        const checkedRadio = b.querySelector(`input[name="correct_${i}"]:checked`);
+        const correctIndex = checkedRadio ? parseInt(checkedRadio.value, 10) : 0;
+
+        updatedQuestions.push({
+          id: currentEditingQuiz.questions[i]?.id || 'q_' + Date.now() + '_' + i,
+          question: qText,
+          options: opts,
+          correctIndex,
+          timeLimit,
+          points: 1000,
+          explanation
+        });
+      }
+
+      currentEditingQuiz.questions = updatedQuestions;
+
+      let savedSuccessfully = false;
+
+      // 1. Try REST if available
+      try {
+        const isExisting = quizzes.some(q => q.id === currentEditingQuiz.id);
+        const url = isExisting ? `/api/quizzes/${currentEditingQuiz.id}` : '/api/quizzes';
+        const method = isExisting ? 'PUT' : 'POST';
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(currentEditingQuiz)
+        });
+        if (res.ok) savedSuccessfully = true;
+      } catch (err) {}
+
+      // 2. Try Supabase upsert if configured
+      if (window.supabaseManager && window.supabaseManager.isConfigured()) {
+        try {
+          const { error } = await window.supabaseManager.client
+            .from('quizzes')
+            .upsert(currentEditingQuiz);
+          if (!error) savedSuccessfully = true;
+        } catch (e) {
+          console.warn('Supabase quiz save error:', e);
+        }
+      }
+
+      // 3. Always save in localStorage for static offline support
+      const existingIdx = quizzes.findIndex(q => q.id === currentEditingQuiz.id);
+      if (existingIdx >= 0) {
+        quizzes[existingIdx] = currentEditingQuiz;
+      } else {
+        quizzes.unshift(currentEditingQuiz);
+      }
+      localStorage.setItem('WAYGROUND_LOCAL_QUIZZES', JSON.stringify(quizzes));
+      savedSuccessfully = true;
+
+      if (savedSuccessfully) {
+        closeEditor();
+        loadQuizzes();
+      } else {
+        alert('Could not save quiz.');
+      }
+    });
+
+    // Import JSON handlers
+    btnImportJson.addEventListener('click', () => {
+      importJsonText.value = '';
+      importModal.classList.remove('hidden');
+    });
+
+    btnCloseImport.addEventListener('click', () => {
+      importModal.classList.add('hidden');
+    });
+
+    btnSubmitImport.addEventListener('click', async () => {
+      try {
+        const parsed = JSON.parse(importJsonText.value.trim());
+        if (!parsed.title || !Array.isArray(parsed.questions)) {
+          alert('Invalid format: Quiz must include a title and questions array.');
+          return;
+        }
+        await fetch('/api/quizzes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(parsed)
+        });
+        importModal.classList.add('hidden');
+        loadQuizzes();
+      } catch (err) {
+        alert('Invalid JSON: ' + err.message);
+      }
+    });
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>

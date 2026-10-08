@@ -1,0 +1,145 @@
+[
+  {
+    "id": "quiz_tech_stars",
+    "title": "⚡ Tech & Coding Superstars",
+    "description": "Test your knowledge of programming, web tech, AI, and computing history!",
+    "category": "Technology",
+    "icon": "💻",
+    "timePerQuestion": 20,
+    "questions": [
+      {
+        "id": "q1",
+        "question": "Which language is primarily used for structuring modern web pages?",
+        "options": ["Python", "HTML", "C++", "Java"],
+        "correctIndex": 1,
+        "timeLimit": 15,
+        "points": 1000,
+        "explanation": "HTML (HyperText Markup Language) provides the fundamental structure of all web documents."
+      },
+      {
+        "id": "q2",
+        "question": "What does 'API' stand for in software development?",
+        "options": [
+          "Automated Program Interface",
+          "Application Programming Interface",
+          "Applied Protocol Integration",
+          "Advanced Processing Instruction"
+        ],
+        "correctIndex": 1,
+        "timeLimit": 20,
+        "points": 1000,
+        "explanation": "API stands for Application Programming Interface, allowing different apps to communicate."
+      },
+      {
+        "id": "q3",
+        "question": "Which company originally created JavaScript in just 10 days in 1995?",
+        "options": ["Microsoft", "Netscape", "Sun Microsystems", "Apple"],
+        "correctIndex": 1,
+        "timeLimit": 20,
+        "points": 1000,
+        "explanation": "Brendan Eich created JavaScript at Netscape in May 1995."
+      },
+      {
+        "id": "q4",
+        "question": "In Git, what command creates a new branch and switches to it in one step?",
+        "options": ["git branch -new", "git checkout -b <name>", "git switch -create", "git push --branch"],
+        "correctIndex": 1,
+        "timeLimit": 20,
+        "points": 1000,
+        "explanation": "'git checkout -b <name>' or 'git switch -c <name>' creates and checks out a new branch."
+      },
+      {
+        "id": "q5",
+        "question": "What does HTTP status code 404 signify?",
+        "options": ["Internal Server Error", "Unauthorized", "Not Found", "Bad Gateway"],
+        "correctIndex": 2,
+        "timeLimit": 15,
+        "points": 1000,
+        "explanation": "HTTP 404 indicates the requested server resource was not found."
+      }
+    ]
+  },
+  {
+    "id": "quiz_science_space",
+    "title": "🚀 Science & Cosmic Wonders",
+    "description": "Embark on a tour of the cosmos, physics, astronomy, and planetary mysteries!",
+    "category": "Science",
+    "icon": "🪐",
+    "timePerQuestion": 20,
+    "questions": [
+      {
+        "id": "qs1",
+        "question": "What is the closest planet to the Sun in our Solar System?",
+        "options": ["Venus", "Mars", "Mercury", "Earth"],
+        "correctIndex": 2,
+        "timeLimit": 15,
+        "points": 1000,
+        "explanation": "Mercury is the closest planet to the Sun, orbiting at an average distance of ~58 million km."
+      },
+      {
+        "id": "qs2",
+        "question": "What is the speed of light in a vacuum (approximately)?",
+        "options": ["300,000 km/s", "150,000 km/s", "30,000 km/s", "1,000,000 km/s"],
+        "correctIndex": 0,
+        "timeLimit": 20,
+        "points": 1000,
+        "explanation": "Light travels at roughly 299,792 km/second in a vacuum."
+      },
+      {
+        "id": "qs3",
+        "question": "Which gas makes up roughly 78% of Earth's atmosphere?",
+        "options": ["Oxygen", "Carbon Dioxide", "Nitrogen", "Argon"],
+        "correctIndex": 2,
+        "timeLimit": 15,
+        "points": 1000,
+        "explanation": "Nitrogen makes up ~78%, Oxygen is ~21%, and other gases comprise the remaining 1%."
+      },
+      {
+        "id": "qs4",
+        "question": "What is the powerhouse organelle of the biological cell?",
+        "options": ["Ribosome", "Mitochondria", "Nucleus", "Endoplasmic Reticulum"],
+        "correctIndex": 1,
+        "timeLimit": 15,
+        "points": 1000,
+        "explanation": "Mitochondria generate most of the chemical energy needed to power the cell's biochemical reactions."
+      }
+    ]
+  },
+  {
+    "id": "quiz_world_trivia",
+    "title": "🌍 Mega World Trivia",
+    "description": "A high-energy battle of geography, world records, and fun facts!",
+    "category": "General Knowledge",
+    "icon": "🏆",
+    "timePerQuestion": 15,
+    "questions": [
+      {
+        "id": "qw1",
+        "question": "What is the capital city of Japan?",
+        "options": ["Kyoto", "Osaka", "Tokyo", "Hiroshima"],
+        "correctIndex": 2,
+        "timeLimit": 15,
+        "points": 1000,
+        "explanation": "Tokyo is the bustling capital of Japan and one of the world's most populous metropolitan areas."
+      },
+      {
+        "id": "qw2",
+        "question": "Which is the largest ocean on planet Earth?",
+        "options": ["Atlantic Ocean", "Indian Ocean", "Pacific Ocean", "Arctic Ocean"],
+        "correctIndex": 2,
+        "timeLimit": 15,
+        "points": 1000,
+        "explanation": "The Pacific Ocean is the largest and deepest ocean on Earth, covering more than 30% of Earth's surface."
+      },
+      {
+        "id": "qw3",
+        "question": "How many players are on the field for one team in a standard soccer match?",
+        "options": ["9", "10", "11", "12"],
+        "correctIndex": 2,
+        "timeLimit": 15,
+        "points": 1000,
+        "explanation": "Each soccer team consists of 11 players on the field, including the goalkeeper."
+      }
+    ]
+  }
+]

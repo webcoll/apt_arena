@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WayGround - Live Interactive MCQ Tournament</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="css/style.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              purple: '#7c3aed',
+              pink: '#ec4899',
+              dark: '#0f172a',
+              card: '#1e1b4b'
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-mesh min-h-screen text-slate-100 flex flex-col justify-between selection:bg-purple-500 selection:text-white">
+
+  <!-- TOP NAVIGATION BAR -->
+  <header class="w-full glass-panel border-b border-white/10 px-6 py-4 flex items-center justify-between sticky top-0 z-40">
+    <div class="flex items-center space-x-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-violet-600 via-fuchsia-500 to-amber-400 flex items-center justify-center shadow-lg shadow-purple-500/30">
+        <i class="fa-solid fa-bolt text-lg text-white"></i>
+      </div>
+      <div class="flex items-center space-x-2">
+        <span class="font-extrabold text-2xl tracking-tight bg-gradient-to-r from-violet-300 via-fuchsia-200 to-amber-200 bg-clip-text text-transparent">
+          WayGround
+        </span>
+        <span class="text-[11px] font-black uppercase px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/40">
+          LIVE MCQ
+        </span>
+      </div>
+    </div>
+
+    <div class="flex items-center space-x-3">
+      <button id="btn-supabase-settings" class="px-3.5 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-xs font-bold text-emerald-300 transition flex items-center space-x-1.5" title="Configure Supabase for Hostinger Static Hosting">
+        <i class="fa-solid fa-cloud"></i>
+        <span>Supabase Sync</span>
+      </button>
+      <a href="creator.html" class="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-slate-300 hover:text-white transition flex items-center space-x-1.5">
+        <i class="fa-solid fa-pen-to-square text-violet-400"></i>
+        <span>Quiz Studio</span>
+      </a>
+      <a href="player.html" class="px-4 py-2 rounded-xl bg-violet-600/30 hover:bg-violet-600/50 border border-violet-500/40 text-xs font-bold text-violet-200 transition flex items-center space-x-1.5">
+        <i class="fa-solid fa-mobile-screen"></i>
+        <span>Join as Student</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- HERO SECTION -->
+  <main class="flex-1 max-w-6xl w-full mx-auto px-4 py-12 md:py-16 flex flex-col items-center text-center">
+    
+    <!-- Top Pill -->
+    <div class="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-violet-500/20 border border-violet-500/40 text-violet-300 text-xs font-bold mb-6 animate-pulse">
+      <i class="fa-solid fa-fire text-amber-400"></i>
+      <span>Next-Gen Real-Time Classroom & Tournament Arena</span>
+    </div>
+
+    <!-- Hero Title -->
+    <h1 class="text-4xl md:text-6xl lg:text-7xl font-black text-white tracking-tight leading-tight max-w-4xl">
+      Live Quizzes, Instant QR Scan &amp; 
+      <span class="bg-gradient-to-r from-violet-400 via-fuchsia-400 to-amber-300 bg-clip-text text-transparent">
+        Epic Leaderboards
+      </span>
+    </h1>
+
+    <p class="mt-5 text-slate-400 text-base md:text-xl max-w-2xl leading-relaxed">
+      Host electrifying live MCQ tournaments for students. Scan the QR code on the big display, tap answers on mobile, and celebrate the grand champions on the Olympic podium.
+    </p>
+
+    <!-- MAIN ACTION CARDS (3 PILLARS) -->
+    <div class="w-full grid grid-cols-1 md:grid-cols-3 gap-6 mt-12 text-left">
+      
+      <!-- Card 1: Host Display / Projector -->
+      <div class="glass-panel rounded-3xl p-6 md:p-8 flex flex-col justify-between border-t-4 border-violet-500 relative group hover:scale-[1.02] transition duration-300">
+        <div class="absolute -top-12 -right-12 w-28 h-28 bg-violet-600/20 rounded-full blur-2xl pointer-events-none"></div>
+        <div>
+          <div class="w-14 h-14 rounded-2xl bg-violet-600/20 border border-violet-500/40 flex items-center justify-center text-3xl mb-5 text-violet-300">
+            🖥️
+          </div>
+          <h2 class="text-2xl font-black text-white mb-2">Host on Big Screen</h2>
+          <p class="text-slate-400 text-xs md:text-sm leading-relaxed mb-6">
+            Launch the projector display with a dynamic QR code, synchronized timer rings, live response charts, and Olympic podium finale.
+          </p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Select Quiz to Host:</label>
+          <select id="quick-quiz-select" class="w-full bg-slate-900 border border-white/20 rounded-xl px-3 py-2.5 text-xs text-white mb-4 focus:outline-none focus:border-violet-500">
+            <!-- Populated via API -->
+          </select>
+
+          <button id="btn-host-launch" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-extrabold text-sm shadow-lg shadow-purple-600/30 hover:brightness-110 active:scale-95 transition flex items-center justify-center space-x-2">
+            <i class="fa-solid fa-tv"></i>
+            <span>Launch Display Screen</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Card 2: Student Join App -->
+      <div class="glass-panel rounded-3xl p-6 md:p-8 flex flex-col justify-between border-t-4 border-pink-500 relative group hover:scale-[1.02] transition duration-300">
+        <div class="absolute -top-12 -right-12 w-28 h-28 bg-pink-600/20 rounded-full blur-2xl pointer-events-none"></div>
+        <div>
+          <div class="w-14 h-14 rounded-2xl bg-pink-600/20 border border-pink-500/40 flex items-center justify-center text-3xl mb-5 text-pink-300">
+            📱
+          </div>
+          <h2 class="text-2xl font-black text-white mb-2">Join as Student</h2>
+          <p class="text-slate-400 text-xs md:text-sm leading-relaxed mb-6">
+            Scan the QR code shown on the display screen or enter the 6-digit Game PIN manually to answer questions in real-time.
+          </p>
+        </div>
+
+        <div>
+          <div class="space-y-3 mb-4">
+            <input type="text" id="quick-pin-input" inputmode="numeric" maxlength="6" placeholder="Enter 6-Digit PIN" class="w-full bg-slate-900 border border-white/20 rounded-xl px-3 py-2.5 text-center font-mono font-black text-lg text-amber-300 tracking-widest placeholder:text-slate-600 focus:outline-none focus:border-pink-500">
+          </div>
+
+          <button id="btn-quick-join" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-pink-600 to-rose-600 text-white font-extrabold text-sm shadow-lg shadow-pink-600/30 hover:brightness-110 active:scale-95 transition flex items-center justify-center space-x-2">
+            <i class="fa-solid fa-gamepad"></i>
+            <span>Enter Tournament</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Card 3: Quiz Studio -->
+      <div class="glass-panel rounded-3xl p-6 md:p-8 flex flex-col justify-between border-t-4 border-amber-500 relative group hover:scale-[1.02] transition duration-300">
+        <div class="absolute -top-12 -right-12 w-28 h-28 bg-amber-600/20 rounded-full blur-2xl pointer-events-none"></div>
+        <div>
+          <div class="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-3xl mb-5 text-amber-300">
+            ✏️
+          </div>
+          <h2 class="text-2xl font-black text-white mb-2">Quiz Studio</h2>
+          <p class="text-slate-400 text-xs md:text-sm leading-relaxed mb-6">
+            Build custom multiple-choice quizzes, configure question time limits, add explanations, and import/export questions in JSON.
+          </p>
+        </div>
+
+        <div>
+          <div class="p-3 rounded-xl bg-white/5 border border-white/10 text-xs text-slate-300 mb-4 flex items-center space-x-2">
+            <i class="fa-solid fa-layer-group text-amber-400"></i>
+            <span id="library-count-info">3 Pre-built Quizzes Ready</span>
+          </div>
+
+          <a href="creator.html" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-black text-sm shadow-lg shadow-amber-500/30 hover:brightness-110 active:scale-95 transition flex items-center justify-center space-x-2">
+            <i class="fa-solid fa-sliders"></i>
+            <span>Open Quiz Studio</span>
+          </a>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- FEATURE HIGHLIGHTS -->
+    <div class="w-full grid grid-cols-2 md:grid-cols-4 gap-4 mt-16 pt-12 border-t border-white/10 text-center">
+      <div class="p-4 rounded-2xl bg-white/5 border border-white/5">
+        <div class="text-2xl mb-1">📷</div>
+        <div class="font-bold text-white text-sm">QR Code Join</div>
+        <div class="text-[11px] text-slate-400 mt-0.5">Students scan &amp; jump right in</div>
+      </div>
+      <div class="p-4 rounded-2xl bg-white/5 border border-white/5">
+        <div class="text-2xl mb-1">⚡</div>
+        <div class="font-bold text-white text-sm">Real-time Sockets</div>
+        <div class="text-[11px] text-slate-400 mt-0.5">Sub-second low latency sync</div>
+      </div>
+      <div class="p-4 rounded-2xl bg-white/5 border border-white/5">
+        <div class="text-2xl mb-1">🔥</div>
+        <div class="font-bold text-white text-sm">Streak Multipliers</div>
+        <div class="text-[11px] text-slate-400 mt-0.5">Speed bonus &amp; streak points</div>
+      </div>
+      <div class="p-4 rounded-2xl bg-white/5 border border-white/5">
+        <div class="text-2xl mb-1">🏆</div>
+        <div class="font-bold text-white text-sm">Olympic Podium</div>
+        <div class="text-[11px] text-slate-400 mt-0.5">Confetti celebration finale</div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="w-full py-6 px-6 text-center text-xs text-slate-500 border-t border-white/5 flex flex-col md:flex-row items-center justify-between max-w-6xl mx-auto">
+    <div>WayGround Live MCQ Tournament &bull; Next-Gen Interactive Classroom Platform</div>
+    <div class="mt-2 md:mt-0 text-slate-400 flex items-center space-x-4">
+      <span>Built with Express &bull; Socket.io &bull; Tailwind CSS</span>
+    </div>
+  </footer>
+
+  <!-- Supabase Settings Modal -->
+  <div id="supabase-modal" class="hidden fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="glass-panel w-full max-w-lg rounded-3xl p-6 md:p-8 border border-emerald-500/30">
+      <div class="flex items-center space-x-3 mb-3">
+        <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-lg">
+          <i class="fa-solid fa-cloud"></i>
+        </div>
+        <div>
+          <h3 class="text-xl font-bold text-white">Hostinger &amp; Supabase Realtime</h3>
+          <p class="text-xs text-slate-400">For 100% static hosting on Hostinger</p>
+        </div>
+      </div>
+      <p class="text-xs text-slate-300 leading-relaxed mb-4">
+        Enter your Supabase credentials below. This enables real-time student interaction and live big-screen projector sync without requiring any custom Node.js server!
+      </p>
+
+      <div class="space-y-3 mb-6">
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Supabase Project URL</label>
+          <input type="text" id="cfg-supabase-url" placeholder="https://your-project.supabase.co" class="w-full bg-slate-900 border border-white/20 rounded-xl px-3 py-2 text-xs font-mono text-emerald-300 focus:outline-none focus:border-emerald-500">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Supabase Anon Key</label>
+          <input type="password" id="cfg-supabase-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." class="w-full bg-slate-900 border border-white/20 rounded-xl px-3 py-2 text-xs font-mono text-emerald-300 focus:outline-none focus:border-emerald-500">
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between">
+        <span id="supabase-status-tag" class="text-xs font-semibold text-slate-400">Status: Standalone / Node</span>
+        <div class="flex items-center space-x-2">
+          <button id="btn-close-sb-modal" class="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold text-slate-300">Close</button>
+          <button id="btn-save-sb-modal" class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold">Save Credentials</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Supabase CDN & Config -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase-config.js"></script>
+
+  <script>
+    const quickQuizSelect = document.getElementById('quick-quiz-select');
+    const btnHostLaunch = document.getElementById('btn-host-launch');
+    const quickPinInput = document.getElementById('quick-pin-input');
+    const btnQuickJoin = document.getElementById('btn-quick-join');
+    const libraryCountInfo = document.getElementById('library-count-info');
+
+    // Supabase Modal Elements
+    const btnSupabaseSettings = document.getElementById('btn-supabase-settings');
+    const supabaseModal = document.getElementById('supabase-modal');
+    const btnCloseSbModal = document.getElementById('btn-close-sb-modal');
+    const btnSaveSbModal = document.getElementById('btn-save-sb-modal');
+    const cfgSupabaseUrl = document.getElementById('cfg-supabase-url');
+    const cfgSupabaseKey = document.getElementById('cfg-supabase-key');
+    const supabaseStatusTag = document.getElementById('supabase-status-tag');
+
+    // Default static fallback quizzes for Hostinger static hosting
+    const STATIC_DEFAULT_QUIZZES = [
+      { id: 'quiz_tech_stars', title: '⚡ Tech & Coding Superstars', icon: '💻', questions: [{},{},{},{},{}] },
+      { id: 'quiz_science_space', title: '🚀 Science & Cosmic Wonders', icon: '🪐', questions: [{},{},{},{}] },
+      { id: 'quiz_world_trivia', title: '🌍 Mega World Trivia', icon: '🏆', questions: [{},{},{}] }
+    ];
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      // Init modal inputs
+      cfgSupabaseUrl.value = localStorage.getItem('WAYGROUND_SUPABASE_URL') || '';
+      cfgSupabaseKey.value = localStorage.getItem('WAYGROUND_SUPABASE_ANON_KEY') || '';
+      updateSbStatus();
+
+      // Load quizzes (Try REST, fallback to Supabase table or static defaults)
+      let quizzes = [];
+      try {
+        const res = await fetch('/api/quizzes');
+        if (res.ok) quizzes = await res.json();
+      } catch (err) {}
+
+      if (!quizzes || quizzes.length === 0) {
+        if (window.supabaseManager && window.supabaseManager.isConfigured()) {
+          try {
+            const { data } = await window.supabaseManager.client.from('quizzes').select('*');
+            if (data && data.length > 0) quizzes = data;
+          } catch (e) {}
+        }
+      }
+
+      if (!quizzes || quizzes.length === 0) {
+        quizzes = STATIC_DEFAULT_QUIZZES;
+      }
+
+      libraryCountInfo.textContent = `${quizzes.length} Quizzes Ready in Library`;
+      quickQuizSelect.innerHTML = '';
+      quizzes.forEach(q => {
+        const opt = document.createElement('option');
+        opt.value = q.id;
+        opt.textContent = `${q.icon || '🎯'} ${q.title} (${q.questions.length} Qs)`;
+        quickQuizSelect.appendChild(opt);
+      });
+    });
+
+    function updateSbStatus() {
+      if (window.supabaseManager && window.supabaseManager.isConfigured()) {
+        supabaseStatusTag.innerHTML = '<span class="text-emerald-400 font-bold">● Connected to Supabase</span>';
+      } else {
+        supabaseStatusTag.innerHTML = '<span class="text-slate-400">● Using Local Engine</span>';
+      }
+    }
+
+    btnSupabaseSettings.addEventListener('click', () => {
+      supabaseModal.classList.remove('hidden');
+    });
+
+    btnCloseSbModal.addEventListener('click', () => {
+      supabaseModal.classList.add('hidden');
+    });
+
+    btnSaveSbModal.addEventListener('click', () => {
+      const url = cfgSupabaseUrl.value.trim();
+      const key = cfgSupabaseKey.value.trim();
+      window.supabaseManager.saveCredentials(url, key);
+      updateSbStatus();
+      supabaseModal.classList.add('hidden');
+      alert('Supabase credentials saved! The platform is now configured for Hostinger static hosting.');
+    });
+
+    btnHostLaunch.addEventListener('click', () => {
+      const selectedId = quickQuizSelect.value;
+      window.location.href = `host.html?quizId=${selectedId}`;
+    });
+
+    btnQuickJoin.addEventListener('click', () => {
+      const pin = quickPinInput.value.trim();
+      if (pin) {
+        window.location.href = `player.html?pin=${pin}`;
+      } else {
+        window.location.href = `player.html`;
+      }
+    });
+  </script>
+</body>
+</html>

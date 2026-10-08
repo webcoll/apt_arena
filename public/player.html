@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Student Play - WayGround Live</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="css/style.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              purple: '#7c3aed',
+              pink: '#ec4899',
+              dark: '#0f172a',
+              card: '#1e1b4b'
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-mesh min-h-screen text-slate-100 flex flex-col justify-between select-none touch-manipulation">
+
+  <!-- TOP MOBILE HEADER -->
+  <header class="w-full glass-panel border-b border-white/10 px-4 py-3 flex items-center justify-between z-30">
+    <div class="flex items-center space-x-2">
+      <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-violet-600 via-fuchsia-500 to-amber-400 flex items-center justify-center shadow-md">
+        <i class="fa-solid fa-bolt text-sm text-white"></i>
+      </div>
+      <span class="font-extrabold text-lg tracking-tight bg-gradient-to-r from-violet-300 to-fuchsia-200 bg-clip-text text-transparent">
+        WayGround
+      </span>
+    </div>
+
+    <!-- Live Status / Player Badge -->
+    <div id="top-player-pill" class="hidden flex items-center space-x-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-xs">
+      <span id="top-player-avatar" class="text-base">🚀</span>
+      <span id="top-player-name" class="font-bold text-white truncate max-w-[90px]">Player</span>
+      <span id="top-player-score" class="font-mono text-amber-300 font-extrabold ml-1">0</span>
+    </div>
+  </header>
+
+  <!-- MAIN STUDENT INTERACTION VIEWPORT -->
+  <main class="flex-1 w-full max-w-md mx-auto p-4 flex flex-col justify-center items-center relative">
+
+    <!-- 1. JOIN SCREEN -->
+    <section id="player-join-screen" class="w-full glass-panel rounded-3xl p-6 shadow-2xl animate-fade-in border-t-2 border-violet-500/50">
+      <div class="text-center mb-6">
+        <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-violet-600 to-pink-500 mx-auto flex items-center justify-center text-3xl mb-3 shadow-lg shadow-purple-500/30">
+          🎮
+        </div>
+        <h2 class="text-2xl font-black text-white">Join Tournament</h2>
+        <p class="text-slate-400 text-xs mt-1">Enter PIN and select your player avatar</p>
+      </div>
+
+      <!-- Join Form -->
+      <form id="join-form" class="space-y-4">
+        <!-- Error Banner -->
+        <div id="join-error-msg" class="hidden p-3 rounded-xl bg-red-500/20 border border-red-500/40 text-red-300 text-xs font-semibold flex items-center space-x-2">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <span id="join-error-text">Game PIN not found</span>
+        </div>
+
+        <!-- PIN Input -->
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Game PIN</label>
+          <div class="relative">
+            <input type="text" id="input-pin" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="e.g. 123456" required class="w-full bg-slate-900/90 border border-white/20 rounded-xl px-4 py-3.5 text-center text-2xl font-black tracking-widest text-amber-300 focus:outline-none focus:border-violet-500 placeholder:text-slate-600 font-mono">
+            <i class="fa-solid fa-hashtag absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"></i>
+          </div>
+        </div>
+
+        <!-- Nickname Input -->
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5">Your Nickname</label>
+          <div class="relative">
+            <input type="text" id="input-nickname" maxlength="15" placeholder="Enter your name" required class="w-full bg-slate-900/90 border border-white/20 rounded-xl px-4 py-3 text-white font-bold text-base focus:outline-none focus:border-violet-500 placeholder:text-slate-600">
+            <i class="fa-solid fa-user absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"></i>
+          </div>
+        </div>
+
+        <!-- Avatar Picker -->
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Choose Avatar</label>
+          <div id="avatar-grid" class="grid grid-cols-6 gap-2">
+            <!-- Avatars injected via JS -->
+          </div>
+        </div>
+
+        <!-- Submit Button -->
+        <button type="submit" id="btn-join-submit" class="w-full py-4 rounded-xl bg-gradient-to-r from-violet-600 via-fuchsia-600 to-pink-600 text-white font-extrabold text-base shadow-lg shadow-purple-600/30 hover:brightness-110 active:scale-95 transition flex items-center justify-center space-x-2">
+          <span>ENTER TOURNAMENT</span>
+          <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </form>
+    </section>
+
+    <!-- 2. LOBBY WAITING SCREEN -->
+    <section id="player-lobby-screen" class="hidden w-full glass-panel rounded-3xl p-8 text-center animate-fade-in">
+      <div id="lobby-confirmed-avatar" class="text-7xl mb-4 animate-bounce">
+        🚀
+      </div>
+      <h2 class="text-2xl font-black text-white">You're in!</h2>
+      <p id="lobby-player-nick" class="text-violet-300 font-bold text-lg mt-1">PlayerName</p>
+      
+      <div class="my-6 p-4 rounded-2xl bg-white/5 border border-white/10">
+        <div class="text-xs uppercase font-extrabold text-slate-400 tracking-wider">Tournament</div>
+        <div id="lobby-quiz-title" class="font-extrabold text-white text-base mt-1">Ready to Play</div>
+      </div>
+
+      <div class="flex items-center justify-center space-x-2 text-slate-400 text-xs animate-pulse">
+        <i class="fa-solid fa-tv"></i>
+        <span>Watch the projector screen to begin!</span>
+      </div>
+    </section>
+
+    <!-- 3. COUNTDOWN SCREEN -->
+    <section id="player-countdown-screen" class="hidden w-full flex flex-col items-center justify-center py-12">
+      <div class="text-slate-400 font-bold uppercase tracking-widest text-sm mb-3">Starting in</div>
+      <div id="player-countdown-num" class="text-8xl font-black text-transparent bg-clip-text bg-gradient-to-tr from-amber-300 via-pink-400 to-violet-400 scale-pop">
+        3
+      </div>
+    </section>
+
+    <!-- 4. ACTIVE QUESTION & ANSWER OPTIONS -->
+    <section id="player-question-screen" class="hidden w-full flex flex-col items-center">
+      <!-- Question progress header -->
+      <div class="w-full flex items-center justify-between glass-card px-4 py-2.5 rounded-2xl mb-4 text-xs font-bold">
+        <span id="player-q-index" class="text-violet-300">Q 1 / 5</span>
+        <span id="player-q-timer" class="text-amber-400 font-mono text-sm">20s</span>
+      </div>
+
+      <!-- Compact Question Preview -->
+      <div class="w-full glass-panel rounded-2xl p-4 mb-4 text-center border-t border-violet-500/40">
+        <p id="player-q-text" class="text-base font-bold text-white leading-snug">
+          Question loading...
+        </p>
+      </div>
+
+      <!-- 4 Massive Tap Buttons -->
+      <div class="w-full grid grid-cols-1 gap-3">
+        <!-- Option 0: Red Triangle -->
+        <button id="opt-btn-0" onclick="submitAnswer(0)" class="btn-pushable opt-red w-full p-4 rounded-2xl text-left flex items-center space-x-4 shadow-lg active:scale-95 transition">
+          <div class="w-10 h-10 rounded-xl bg-black/30 flex items-center justify-center text-xl font-black shrink-0 text-white">
+            ▲
+          </div>
+          <span id="opt-text-0" class="text-white font-bold text-base flex-1">Option A</span>
+        </button>
+
+        <!-- Option 1: Blue Diamond -->
+        <button id="opt-btn-1" onclick="submitAnswer(1)" class="btn-pushable opt-blue w-full p-4 rounded-2xl text-left flex items-center space-x-4 shadow-lg active:scale-95 transition">
+          <div class="w-10 h-10 rounded-xl bg-black/30 flex items-center justify-center text-xl font-black shrink-0 text-white">
+            ◆
+          </div>
+          <span id="opt-text-1" class="text-white font-bold text-base flex-1">Option B</span>
+        </button>
+
+        <!-- Option 2: Yellow Circle -->
+        <button id="opt-btn-2" onclick="submitAnswer(2)" class="btn-pushable opt-yellow w-full p-4 rounded-2xl text-left flex items-center space-x-4 shadow-lg active:scale-95 transition">
+          <div class="w-10 h-10 rounded-xl bg-black/30 flex items-center justify-center text-xl font-black shrink-0 text-white">
+            ●
+          </div>
+          <span id="opt-text-2" class="text-white font-bold text-base flex-1">Option C</span>
+        </button>
+
+        <!-- Option 3: Green Square -->
+        <button id="opt-btn-3" onclick="submitAnswer(3)" class="btn-pushable opt-green w-full p-4 rounded-2xl text-left flex items-center space-x-4 shadow-lg active:scale-95 transition">
+          <div class="w-10 h-10 rounded-xl bg-black/30 flex items-center justify-center text-xl font-black shrink-0 text-white">
+            ■
+          </div>
+          <span id="opt-text-3" class="text-white font-bold text-base flex-1">Option D</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- 5. ANSWER LOCKED SCREEN -->
+    <section id="player-locked-screen" class="hidden w-full glass-panel rounded-3xl p-8 text-center animate-fade-in">
+      <div class="w-20 h-20 rounded-full bg-violet-500/20 border-2 border-violet-500/50 mx-auto flex items-center justify-center text-3xl mb-4 text-violet-300 animate-pulse">
+        <i class="fa-solid fa-lock"></i>
+      </div>
+      <h3 class="text-2xl font-black text-white">Answer Locked In!</h3>
+      <p class="text-slate-400 text-xs mt-2">Waiting for other students to respond...</p>
+
+      <div class="mt-6 flex justify-center">
+        <div class="w-12 h-1.5 bg-violet-500/30 rounded-full overflow-hidden">
+          <div class="w-full h-full bg-violet-400 animate-pulse"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. QUESTION RESULT FEEDBACK -->
+    <section id="player-result-screen" class="hidden w-full glass-panel rounded-3xl p-6 text-center animate-fade-in">
+      <!-- Status Badge Icon -->
+      <div id="result-status-icon-wrap" class="w-20 h-20 rounded-full mx-auto flex items-center justify-center text-4xl mb-4 shadow-lg">
+        <!-- Injected -->
+      </div>
+
+      <h3 id="result-status-title" class="text-3xl font-black text-white">
+        Correct!
+      </h3>
+
+      <div class="my-4 p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
+        <div class="flex items-center justify-between text-sm">
+          <span class="text-slate-400">Points Earned:</span>
+          <span id="result-points-earned" class="font-mono font-black text-emerald-400 text-lg">+920</span>
+        </div>
+        <div id="result-streak-row" class="hidden flex items-center justify-between text-sm">
+          <span class="text-slate-400">Streak Bonus:</span>
+          <span id="result-streak-bonus" class="font-bold text-amber-400">🔥 +100</span>
+        </div>
+        <div class="border-t border-white/10 pt-2 flex items-center justify-between text-sm">
+          <span class="text-slate-400">Your Current Rank:</span>
+          <span id="result-current-rank" class="font-extrabold text-violet-300">#1 / 5</span>
+        </div>
+      </div>
+
+      <div class="text-xs text-slate-400 mt-4 flex items-center justify-center space-x-1.5">
+        <i class="fa-solid fa-tv text-violet-400"></i>
+        <span>Leaderboard updating on main screen!</span>
+      </div>
+    </section>
+
+    <!-- 7. FINAL GAME OVER SCREEN -->
+    <section id="player-finished-screen" class="hidden w-full glass-panel rounded-3xl p-8 text-center animate-fade-in">
+      <div id="final-trophy-icon" class="text-6xl mb-4 animate-bounce">
+        🏆
+      </div>
+      <h3 class="text-3xl font-black text-white">Tournament Over!</h3>
+      <p id="final-rank-tagline" class="text-amber-300 font-extrabold text-xl mt-1">Rank #1 Champion</p>
+
+      <div class="my-6 p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
+        <div class="flex items-center justify-between text-sm">
+          <span class="text-slate-400">Final Score:</span>
+          <span id="final-score-display" class="font-mono font-black text-2xl text-violet-300">4,820</span>
+        </div>
+        <div class="flex items-center justify-between text-sm">
+          <span class="text-slate-400">Accuracy:</span>
+          <span id="final-accuracy-display" class="font-bold text-emerald-400">100%</span>
+        </div>
+      </div>
+
+      <a href="index.html" class="inline-block w-full py-3.5 rounded-xl bg-violet-600 hover:bg-violet-500 font-bold text-white text-sm transition">
+        Back to Home
+      </a>
+    </section>
+
+  </main>
+
+  <!-- MOBILE FOOTER -->
+  <footer class="w-full py-2.5 text-center text-[10px] text-slate-500 border-t border-white/5">
+    WayGround Student App &bull; Powered by WebSockets
+  </footer>
+
+  <!-- Supabase CDN & Config -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase-config.js"></script>
+  <!-- Realtime engine (Bridges Supabase & Socket.io) -->
+  <script src="js/realtime-engine.js"></script>
+  <!-- Socket.io client (Fallback) -->
+  <script src="/socket.io/socket.io.js"></script>
+  <!-- Sound engine -->
+  <script src="js/sound.js"></script>
+  <!-- Player logic -->
+  <script src="js/player.js"></script>
+</body>
+</html>
