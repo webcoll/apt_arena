@@ -1,4 +1,4 @@
-// Host / Display Logic - Live Stadium Pitch Arena
+// Host / Display Logic - Live Animated Ranking Tiles Arena
 const socket = window.realtimeEngine;
 
 // State
@@ -13,6 +13,11 @@ let currentLeaderboardPlayers = [];
 let currentTotalQuestions = 5;
 let raceChartInstance = null;
 let podiumChartInstance = null;
+
+// Tile Animation State Tracker
+const tileNodesMap = new Map();       // playerId -> HTMLDivElement
+const previousRanksMap = new Map();   // playerId -> previous rank index (0-based)
+const previousScoresMap = new Map();  // playerId -> previous score (number)
 
 // Screens
 const lobbyScreen = document.getElementById('lobby-screen');
@@ -46,13 +51,13 @@ const raceQuizTitle = document.getElementById('race-quiz-title');
 const raceProgressCount = document.getElementById('race-progress-count');
 const raceProgressBar = document.getElementById('race-progress-bar');
 const raceStatusNote = document.getElementById('race-status-note');
-const viewTabPitch = document.getElementById('view-tab-pitch');
+const viewTabTiles = document.getElementById('view-tab-tiles');
 const viewTabChart = document.getElementById('view-tab-chart');
 const releaseScoresBtn = document.getElementById('release-scores-btn');
 const raceTickerText = document.getElementById('race-ticker-text');
-const pitchViewContainer = document.getElementById('pitch-view-container');
+const tilesViewContainer = document.getElementById('tiles-view-container');
 const chartViewContainer = document.getElementById('chart-view-container');
-const racersLanesContainer = document.getElementById('racers-lanes-container');
+const leaderboardTilesStage = document.getElementById('leaderboard-tiles-stage');
 
 // Podium Elements
 const downloadResultsBtn = document.getElementById('download-results-btn');
@@ -226,6 +231,12 @@ function initHostEvents() {
 
   // Start countdown (3-2-1)
   socket.on('game:countdown', ({ seconds }) => {
+    // Reset tile tracker maps for new tournament
+    tileNodesMap.clear();
+    previousRanksMap.clear();
+    previousScoresMap.clear();
+    if (leaderboardTilesStage) leaderboardTilesStage.innerHTML = '';
+
     showScreen(countdownOverlay);
     let count = seconds;
     countdownNum.textContent = count;
@@ -241,7 +252,7 @@ function initHostEvents() {
         window.sounds.playGoBeep();
         clearInterval(intv);
 
-        // Switch straight to the LIVE RACE ARENA!
+        // Switch straight to the LIVE ANIMATED TILES ARENA!
         setTimeout(() => {
           showScreen(raceScreen);
           window.sounds.playOngoingMusic();
@@ -261,8 +272,8 @@ function initHostEvents() {
     currentLeaderboardPlayers = data.players || [];
     currentTotalQuestions = data.totalQuestions || currentTotalQuestions;
 
-    // Render racers gliding on the pitch
-    renderPitchLanes(data.players, currentTotalQuestions);
+    // Smoothly animate tiles (Leader climbs UP, overtaken glides DOWN)
+    renderAnimatedTiles(data.players, currentTotalQuestions);
 
     // Update progress counters
     raceProgressCount.textContent = `${data.finishedCount} / ${data.totalPlayers}`;
@@ -282,7 +293,7 @@ function initHostEvents() {
       raceTickerText.textContent = data.latestEvent;
     }
 
-    // Update real-time battle graph if active
+    // Update real-time battle graph if graph tab is active
     if (chartViewContainer && !chartViewContainer.classList.contains('hidden')) {
       renderRaceChart(data.players, 'race-live-chart-canvas');
     }
@@ -328,77 +339,134 @@ function initHostEvents() {
   });
 }
 
-// Render dynamic runner cards across the stadium pitch
-function renderPitchLanes(players, totalQuestions) {
-  if (!racersLanesContainer) return;
-  racersLanesContainer.innerHTML = '';
+// Render Smoothly Animated Leaderboard Tiles
+// Students with most points climb UP; overtaken students glide DOWN
+function renderAnimatedTiles(players, totalQuestions) {
+  if (!leaderboardTilesStage) return;
 
   if (!players || players.length === 0) {
-    racersLanesContainer.innerHTML = '<div class="text-center text-slate-400 py-16 text-sm font-semibold">Racers lining up at the start line...</div>';
+    leaderboardTilesStage.innerHTML = '<div class="text-center text-slate-400 py-16 text-sm font-semibold">Waiting for competitors to join...</div>';
     return;
   }
 
+  const ROW_HEIGHT = 82; // 72px tile + 10px spacing
+  leaderboardTilesStage.style.height = `${players.length * ROW_HEIGHT}px`;
+
   const totalQ = totalQuestions || 5;
+  const currentActiveIds = new Set();
 
-  players.forEach((p) => {
-    const lane = document.createElement('div');
-    lane.className = 'racer-lane-card relative w-full h-14 rounded-2xl bg-black/40 border border-emerald-500/20 flex items-center px-2 overflow-hidden transition-all duration-300 hover:border-emerald-400/40';
+  players.forEach((p, newIndex) => {
+    currentActiveIds.add(p.id);
 
-    // Calculate progression percentage across the pitch
-    const questionsAnswered = p.questionsAnswered || 0;
-    let posPercent = 0;
+    const prevIndex = previousRanksMap.has(p.id) ? previousRanksMap.get(p.id) : newIndex;
+    const prevScore = previousScoresMap.has(p.id) ? previousScoresMap.get(p.id) : p.score;
+    const rankDelta = prevIndex - newIndex; // Positive means moved UP! (e.g. was 5, now 1 => +4)
+    const scoreDelta = p.score - prevScore;
 
-    if (p.isFinished) {
-      posPercent = 86; // Crosses the finish line!
-    } else if (totalQ > 0) {
-      posPercent = Math.min(84, (questionsAnswered / totalQ) * 84);
+    let tile = tileNodesMap.get(p.id);
+
+    if (!tile) {
+      // First time creating this competitor's tile
+      tile = document.createElement('div');
+      tile.className = 'leaderboard-tile';
+      tile.dataset.playerId = p.id;
+      // Initial position
+      tile.style.transform = `translateY(${newIndex * ROW_HEIGHT}px)`;
+      leaderboardTilesStage.appendChild(tile);
+      tileNodesMap.set(p.id, tile);
     }
 
-    let rankBadgeClass = 'bg-slate-800 text-slate-300 border border-white/10';
-    let rankText = `#${p.rank}`;
-    let borderHighlight = '';
+    // Rank styling & Medals
+    let rankClass = 'rank-pill-default';
+    let tileRankBorderClass = '';
+    let medalIcon = '';
 
-    if (p.rank === 1) {
-      rankBadgeClass = 'bg-amber-400 text-slate-950 font-black shadow-lg shadow-amber-400/40';
-      rankText = '👑 #1';
-      borderHighlight = 'border-amber-400/60 shadow-md shadow-amber-400/20';
-    } else if (p.rank === 2) {
-      rankBadgeClass = 'bg-slate-300 text-slate-950 font-black';
-      rankText = '🥈 #2';
-    } else if (p.rank === 3) {
-      rankBadgeClass = 'bg-amber-700 text-white font-black';
-      rankText = '🥉 #3';
+    if (newIndex === 0) {
+      rankClass = 'rank-pill-1';
+      tileRankBorderClass = 'rank-1';
+      medalIcon = '👑';
+    } else if (newIndex === 1) {
+      rankClass = 'rank-pill-2';
+      tileRankBorderClass = 'rank-2';
+      medalIcon = '🥈';
+    } else if (newIndex === 2) {
+      rankClass = 'rank-pill-3';
+      tileRankBorderClass = 'rank-3';
+      medalIcon = '🥉';
     }
 
-    const statusBadge = p.isFinished
-      ? '<span class="text-[10px] font-black bg-amber-400 text-slate-950 px-2 py-0.5 rounded-full shadow">🏁 FINISHED</span>'
-      : `<span class="text-[10px] font-bold text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/30">Q ${questionsAnswered}/${totalQ}</span>`;
+    // Rank movement badge (Up / Down indicator)
+    let movementBadge = '';
+    if (rankDelta > 0) {
+      movementBadge = `<span class="px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-500/25 text-emerald-300 border border-emerald-500/40 animate-pulse">▲ +${rankDelta}</span>`;
+      tile.classList.add('tile-jump-up');
+      setTimeout(() => tile.classList.remove('tile-jump-up'), 1200);
+    } else if (rankDelta < 0) {
+      movementBadge = `<span class="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">▼ ${Math.abs(rankDelta)}</span>`;
+    }
 
+    // Streak badge
     const streakBadge = (p.streak && p.streak >= 2)
-      ? `<span class="text-[10px] font-black text-orange-400 bg-orange-500/20 px-1.5 py-0.5 rounded border border-orange-500/40">🔥 x${p.streak}</span>`
+      ? `<span class="px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-400 text-xs font-black border border-orange-500/40">🔥 x${p.streak}</span>`
       : '';
 
-    lane.innerHTML = `
-      <!-- Lane guideline -->
-      <div class="absolute inset-x-0 h-px bg-emerald-500/15 top-1/2 -translate-y-1/2 pointer-events-none"></div>
+    // Status badge
+    const statusBadge = p.isFinished
+      ? '<span class="text-xs font-black bg-amber-400 text-slate-950 px-2.5 py-0.5 rounded-full shadow-sm">🏁 FINISHED</span>'
+      : `<span class="text-xs font-bold text-slate-300 bg-white/5 px-2.5 py-0.5 rounded-full border border-white/10">Q ${p.questionsAnswered || 0}/${totalQ}</span>`;
 
-      <!-- Sliding runner entity -->
-      <div class="runner-entity absolute flex items-center space-x-2 transition-all duration-700 ease-out z-10" style="left: ${posPercent}%;">
-        <div class="px-2 py-0.5 rounded-lg text-xs font-black shrink-0 ${rankBadgeClass}">
-          ${rankText}
+    // Score change pop
+    const scorePop = scoreDelta > 0
+      ? `<span class="text-xs font-black text-emerald-400 animate-bounce ml-1.5">+${scoreDelta}</span>`
+      : '';
+
+    // Update styling class
+    tile.className = `leaderboard-tile ${tileRankBorderClass}`;
+
+    // Smooth GPU transform to new rank position (This moves tile UP or DOWN)
+    tile.style.transform = `translateY(${newIndex * ROW_HEIGHT}px)`;
+
+    // Tile inner contents
+    tile.innerHTML = `
+      <!-- Left: Rank Badge & Player Profile -->
+      <div class="flex items-center space-x-3.5">
+        <div class="rank-pill ${rankClass}">
+          ${newIndex + 1}
         </div>
-        <div class="text-3xl filter drop-shadow animate-pulse">${p.avatar || '🚀'}</div>
-        <div class="glass-card px-3 py-1 rounded-xl flex items-center space-x-2 border border-white/20 shadow-xl bg-slate-900/90 ${borderHighlight}">
-          <span class="font-extrabold text-white text-xs whitespace-nowrap">${escapeHtml(p.nickname)}</span>
-          <span class="font-mono font-bold text-amber-300 text-xs">${p.score.toLocaleString()} pts</span>
-          ${statusBadge}
+        <div class="text-3xl filter drop-shadow">${p.avatar || '🚀'}</div>
+        <div class="flex items-center space-x-2">
+          <span class="font-extrabold text-white text-base">${escapeHtml(p.nickname)}</span>
+          ${medalIcon ? `<span class="text-base">${medalIcon}</span>` : ''}
+          ${movementBadge}
           ${streakBadge}
+        </div>
+      </div>
+
+      <!-- Right: Progress pill & Live Points -->
+      <div class="flex items-center space-x-6 pr-2">
+        ${statusBadge}
+        <div class="font-mono font-black text-violet-300 text-lg flex items-center min-w-[110px] justify-end">
+          <span>${p.score.toLocaleString()}</span>
+          <span class="text-xs text-slate-400 font-sans font-normal ml-1">pts</span>
+          ${scorePop}
         </div>
       </div>
     `;
 
-    racersLanesContainer.appendChild(lane);
+    // Save previous state for delta calculation
+    previousRanksMap.set(p.id, newIndex);
+    previousScoresMap.set(p.id, p.score);
   });
+
+  // Clean up tiles of any disconnected students
+  for (const [id, el] of tileNodesMap.entries()) {
+    if (!currentActiveIds.has(id)) {
+      el.remove();
+      tileNodesMap.delete(id);
+      previousRanksMap.delete(id);
+      previousScoresMap.delete(id);
+    }
+  }
 }
 
 // Render Lobby Players Grid
@@ -411,14 +479,14 @@ function renderPlayersGrid(players) {
   }
   noPlayersMsg.classList.add('hidden');
 
-  players.forEach((p, idx) => {
+  players.forEach((p) => {
     const card = document.createElement('div');
     card.className = 'glass-card p-3 rounded-2xl flex items-center space-x-3 border border-white/10 hover:border-violet-500/50 transition transform hover:-translate-y-0.5 scale-pop relative group';
     card.innerHTML = `
       <div class="text-3xl">${p.avatar || '🚀'}</div>
       <div class="truncate flex-1">
         <div class="font-extrabold text-white text-sm truncate">${escapeHtml(p.nickname)}</div>
-        <div class="text-[11px] text-slate-400">Ready to Race</div>
+        <div class="text-[11px] text-slate-400">Ready to Compete</div>
       </div>
       <button onclick="kickPlayer('${p.id}')" title="Remove student" class="opacity-0 group-hover:opacity-100 transition p-1 text-slate-400 hover:text-red-400 text-xs">
         <i class="fa-solid fa-xmark"></i>
@@ -432,21 +500,21 @@ window.kickPlayer = function(playerId) {
   socket.emit('host:kick_player', { playerId });
 };
 
-// View Tabs: Stadium Pitch vs Live Battle Graph
+// View Tabs: Live Tiles vs Live Battle Graph
 function initRaceViewTabs() {
-  if (!viewTabPitch || !viewTabChart) return;
+  if (!viewTabTiles || !viewTabChart) return;
 
-  viewTabPitch.addEventListener('click', () => {
-    viewTabPitch.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition bg-emerald-600 text-white shadow flex items-center space-x-1.5';
+  viewTabTiles.addEventListener('click', () => {
+    viewTabTiles.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition bg-violet-600 text-white shadow flex items-center space-x-1.5';
     viewTabChart.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-300 hover:text-white flex items-center space-x-1.5';
-    pitchViewContainer.classList.remove('hidden');
+    tilesViewContainer.classList.remove('hidden');
     chartViewContainer.classList.add('hidden');
   });
 
   viewTabChart.addEventListener('click', () => {
-    viewTabChart.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition bg-emerald-600 text-white shadow flex items-center space-x-1.5';
-    viewTabPitch.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-300 hover:text-white flex items-center space-x-1.5';
-    pitchViewContainer.classList.add('hidden');
+    viewTabChart.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition bg-violet-600 text-white shadow flex items-center space-x-1.5';
+    viewTabTiles.className = 'px-3 py-1.5 rounded-lg text-xs font-bold transition text-slate-300 hover:text-white flex items-center space-x-1.5';
+    tilesViewContainer.classList.add('hidden');
     chartViewContainer.classList.remove('hidden');
     renderRaceChart(currentLeaderboardPlayers, 'race-live-chart-canvas');
   });

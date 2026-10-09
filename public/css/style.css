@@ -149,3 +149,88 @@ body {
   transform: rotate(-90deg);
   transform-origin: 50% 50%;
 }
+
+/* Live Smooth Animated Leaderboard Tiles */
+.tiles-stage {
+  position: relative;
+  width: 100%;
+  transition: height 0.4s ease;
+}
+
+.leaderboard-tile {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 72px;
+  border-radius: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.25rem;
+  transition: transform 0.65s cubic-bezier(0.22, 1, 0.36, 1), 
+              background-color 0.35s ease, 
+              border-color 0.35s ease, 
+              box-shadow 0.35s ease;
+  will-change: transform;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.leaderboard-tile.rank-1 {
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.25) 0%, rgba(30, 27, 75, 0.9) 100%);
+  border: 2px solid rgba(245, 158, 11, 0.7);
+  box-shadow: 0 10px 30px -5px rgba(245, 158, 11, 0.3);
+}
+
+.leaderboard-tile.rank-2 {
+  background: linear-gradient(90deg, rgba(203, 213, 225, 0.18) 0%, rgba(30, 27, 75, 0.85) 100%);
+  border: 1.5px solid rgba(203, 213, 225, 0.5);
+}
+
+.leaderboard-tile.rank-3 {
+  background: linear-gradient(90deg, rgba(217, 119, 6, 0.18) 0%, rgba(30, 27, 75, 0.85) 100%);
+  border: 1.5px solid rgba(217, 119, 6, 0.5);
+}
+
+.leaderboard-tile.tile-jump-up {
+  border-color: #10b981 !important;
+  box-shadow: 0 0 25px rgba(16, 185, 129, 0.6) !important;
+}
+
+.rank-pill {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.875rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+}
+
+.rank-pill-1 {
+  background: #f59e0b;
+  color: #0b0f19;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.5);
+}
+
+.rank-pill-2 {
+  background: #cbd5e1;
+  color: #0b0f19;
+}
+
+.rank-pill-3 {
+  background: #b45309;
+  color: #ffffff;
+}
+
+.rank-pill-default {
+  background: rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
